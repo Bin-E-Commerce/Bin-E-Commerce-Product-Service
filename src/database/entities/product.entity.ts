@@ -1,0 +1,168 @@
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from "typeorm";
+import { ProductOriginType } from "../../modules/products/enums/product-origin-type.enum";
+import { ProductStatus } from "../../modules/products/enums/product-status.enum";
+import { Brand } from "./brand.entity";
+import { ExternalShop } from "./external-shop.entity";
+import { ProductImage } from "./product-image.entity";
+import { ProductVariant } from "./product-variant.entity";
+import { ProductOption } from "./product-option.entity";
+import { ProductAttributeValue } from "./product-attribute-value.entity";
+import { ProductReview } from "./product-review.entity";
+
+@Entity("products")
+@Index(["slug"], { unique: true })
+@Index(["categoryId"])
+@Index(["sellerShopId"])
+@Index(["externalShopId"])
+@Index(["sourcePlatform", "externalProductId"], {
+  unique: true,
+  where: "source_platform IS NOT NULL AND external_product_id IS NOT NULL",
+})
+export class Product {
+  // ID nội bộ của sản phẩm trong product-service.
+  @PrimaryGeneratedColumn("uuid")
+  id: string;
+
+  // Phân biệt product do seller nội bộ tạo hay product crawl từ nguồn ngoài.
+  @Column({
+    name: "origin_type",
+    type: "enum",
+    enum: ProductOriginType,
+    default: ProductOriginType.INTERNAL,
+  })
+  originType: ProductOriginType;
+
+  // ID shop thật trong seller-service; chỉ lưu ID logic vì product-service không FK cross-database.
+  @Column({ name: "seller_shop_id", type: "uuid", nullable: true })
+  sellerShopId: string | null;
+
+  // ID shop nguồn trong bảng external_shops; dùng cho product crawl từ Tiki/Shopee/Lazada.
+  @Column({ name: "external_shop_id", type: "uuid", nullable: true })
+  externalShopId: string | null;
+
+  // Quan hệ nội bộ đến shop nguồn để đọc product import kèm thông tin shop crawl.
+  @ManyToOne(() => ExternalShop, (shop) => shop.products, {
+    nullable: true,
+    onDelete: "SET NULL",
+  })
+  @JoinColumn({ name: "external_shop_id" })
+  externalShop: ExternalShop | null;
+
+  // ID category nội bộ từ catalog-service; không tạo thêm category từ Tiki khi import.
+  @Column({ name: "category_id", type: "uuid" })
+  categoryId: string;
+
+  // ID brand nếu product có thương hiệu.
+  @Column({ name: "brand_id", type: "uuid", nullable: true })
+  brandId: string | null;
+
+  // Quan hệ nội bộ đến brand vì brand thuộc product-service.
+  @ManyToOne(() => Brand, (brand) => brand.products, {
+    nullable: true,
+    onDelete: "SET NULL",
+  })
+  @JoinColumn({ name: "brand_id" })
+  brand: Brand | null;
+
+  // Tên sản phẩm hiển thị.
+  @Column({ type: "varchar", length: 500 })
+  name: string;
+
+  // Slug sản phẩm để làm URL và chống trùng trong product-service.
+  @Column({ type: "varchar", length: 620 })
+  slug: string;
+
+  // Mô tả chi tiết, có thể là HTML đã được sanitize ở tầng import/admin sau này.
+  @Column({ type: "text", nullable: true })
+  description: string | null;
+
+  // Mô tả ngắn phục vụ card/listing.
+  @Column({ name: "short_description", type: "text", nullable: true })
+  shortDescription: string | null;
+
+  // Trạng thái vòng đời sản phẩm.
+  @Column({
+    type: "enum",
+    enum: ProductStatus,
+    default: ProductStatus.DRAFT,
+  })
+  status: ProductStatus;
+
+  // Giá thấp nhất tính từ các variant đang bán.
+  @Column({ name: "min_price", type: "numeric", precision: 14, scale: 2, default: 0 })
+  minPrice: string;
+
+  // Giá cao nhất tính từ các variant đang bán.
+  @Column({ name: "max_price", type: "numeric", precision: 14, scale: 2, default: 0 })
+  maxPrice: string;
+
+  // Tổng số lượng đã bán theo nguồn hoặc theo đơn hàng nội bộ sau này.
+  @Column({ name: "total_sold", type: "int", default: 0 })
+  totalSold: number;
+
+  // Điểm đánh giá trung bình của sản phẩm.
+  @Column({ name: "rating_avg", type: "numeric", precision: 4, scale: 2, nullable: true })
+  ratingAvg: string | null;
+
+  // Số review của sản phẩm.
+  @Column({ name: "review_count", type: "int", default: 0 })
+  reviewCount: number;
+
+  // Số lượt xem, dùng cho analytics/sắp xếp phổ biến sau này.
+  @Column({ name: "view_count", type: "int", default: 0 })
+  viewCount: number;
+
+  // Nền tảng nguồn nếu là product crawl.
+  @Column({ name: "source_platform", type: "varchar", length: 40, nullable: true })
+  sourcePlatform: string | null;
+
+  // ID sản phẩm trên nguồn ngoài, dùng chống trùng khi crawler chạy lại.
+  @Column({ name: "external_product_id", type: "varchar", length: 120, nullable: true })
+  externalProductId: string | null;
+
+  // URL sản phẩm gốc trên nền tảng nguồn.
+  @Column({ name: "source_url", type: "text", nullable: true })
+  sourceUrl: string | null;
+
+  // Metadata phụ của nguồn crawl hoặc admin workflow.
+  @Column({ type: "jsonb", default: () => "'{}'::jsonb" })
+  metadata: Record<string, unknown>;
+
+  // Ảnh của sản phẩm.
+  @OneToMany(() => ProductImage, (image) => image.product)
+  images: ProductImage[];
+
+  // Các SKU/variant bán hàng.
+  @OneToMany(() => ProductVariant, (variant) => variant.product)
+  variants: ProductVariant[];
+
+  // Các nhóm phân loại như Màu sắc, Size, Dung lượng.
+  @OneToMany(() => ProductOption, (option) => option.product)
+  options: ProductOption[];
+
+  // Giá trị thuộc tính kỹ thuật của product theo category attributes nội bộ.
+  @OneToMany(() => ProductAttributeValue, (value) => value.product)
+  attributeValues: ProductAttributeValue[];
+
+  // Review crawl hoặc review nội bộ sau này.
+  @OneToMany(() => ProductReview, (review) => review.product)
+  reviews: ProductReview[];
+
+  // Thời điểm tạo sản phẩm.
+  @CreateDateColumn({ name: "created_at", type: "timestamptz" })
+  createdAt: Date;
+
+  // Thời điểm cập nhật sản phẩm gần nhất.
+  @UpdateDateColumn({ name: "updated_at", type: "timestamptz" })
+  updatedAt: Date;
+}
