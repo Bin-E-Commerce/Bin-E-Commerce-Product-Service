@@ -2,20 +2,20 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, In, Repository } from "typeorm";
 import { Product } from "../../../database/entities/product.entity";
-import { ListProductsQueryDto } from "../dto/list-products-query.dto";
-import type { PaginatedResponse } from "../types/paginated-response.type";
+import { ListStorefrontProductsQueryDto } from "../dto/list-storefront-products-query.dto";
+import type { PaginatedProductResponse } from "../types/paginated-product-response.type";
 
 @Injectable()
-export class ProductsService {
+export class StorefrontProductsService {
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
   ) {}
 
   // Lấy danh sách sản phẩm theo bộ lọc và phân trang để giao diện công khai và công cụ kiểm tra import dùng chung.
-  async listProducts(
-    query: ListProductsQueryDto,
-  ): Promise<PaginatedResponse<Product>> {
+  async listStorefrontProducts(
+    query: ListStorefrontProductsQueryDto,
+  ): Promise<PaginatedProductResponse<Product>> {
     const page = query.page;
     const pageSize = query.pageSize;
     const qb = this.productRepository.createQueryBuilder("product");
@@ -117,7 +117,7 @@ export class ProductsService {
   }
 
   // Lấy chi tiết sản phẩm theo UUID cùng toàn bộ quan hệ cần cho màn hình chi tiết.
-  async getProductById(id: string): Promise<Product> {
+  async getStorefrontProductById(id: string): Promise<Product> {
     const product = await this.productRepository.findOne({
       where: { id },
       relations: {

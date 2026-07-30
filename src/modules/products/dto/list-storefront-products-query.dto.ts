@@ -11,7 +11,8 @@ import {
 import { ProductOriginType } from "../enums/product-origin-type.enum";
 import { ProductStatus } from "../enums/product-status.enum";
 
-export class ListProductsQueryDto {
+// Query dành riêng cho listing storefront; seller dùng DTO ownership riêng để không trộn hai ngữ cảnh.
+export class ListStorefrontProductsQueryDto {
   @IsOptional()
   @IsString()
   search?: string;

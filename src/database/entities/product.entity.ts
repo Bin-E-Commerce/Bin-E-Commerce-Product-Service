@@ -23,6 +23,7 @@ import { ProductReview } from "./product-review.entity";
 @Index(["slug"], { unique: true })
 @Index(["categoryId"])
 @Index(["sellerShopId"])
+@Index(["sellerOwnerId"])
 @Index(["externalShopId"])
 @Index(["sourcePlatform", "externalProductId"], {
   unique: true,
@@ -45,6 +46,11 @@ export class Product {
   // ID shop thật trong seller-service; chỉ lưu ID logic vì product-service không FK cross-database.
   @Column({ name: "seller_shop_id", type: "uuid", nullable: true })
   sellerShopId: string | null;
+
+  // ID tài khoản sở hữu shop lấy từ auth-service; trường này là khóa phân vùng dữ liệu khi seller đọc sản phẩm của mình.
+  // Product Service lưu bản sao ID logic để kiểm tra ownership mà không cần gọi đồng bộ sang seller-service cho mỗi request.
+  @Column({ name: "seller_owner_id", type: "uuid", nullable: true })
+  sellerOwnerId: string | null;
 
   // ID shop nguồn trong bảng external_shops; dùng cho product crawl từ Tiki/Shopee/Lazada.
   @Column({ name: "external_shop_id", type: "uuid", nullable: true })

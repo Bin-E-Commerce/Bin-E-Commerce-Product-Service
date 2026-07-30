@@ -11,8 +11,10 @@ import { ProductReview } from "../../database/entities/product-review.entity";
 import { ProductVariantOptionValue } from "../../database/entities/product-variant-option-value.entity";
 import { ProductVariant } from "../../database/entities/product-variant.entity";
 import { Product } from "../../database/entities/product.entity";
-import { ProductsController } from "./controllers/products.controller";
-import { ProductsService } from "./services/products.service";
+import { SellerProductsController } from "./controllers/seller-products.controller";
+import { StorefrontProductsController } from "./controllers/storefront-products.controller";
+import { SellerProductsService } from "./services/seller-products.service";
+import { StorefrontProductsService } from "./services/storefront-products.service";
 
 @Module({
   imports: [
@@ -30,8 +32,8 @@ import { ProductsService } from "./services/products.service";
       ProductReview,
     ]),
   ],
-  controllers: [ProductsController],
-  providers: [ProductsService],
-  exports: [ProductsService],
+  controllers: [StorefrontProductsController, SellerProductsController],
+  providers: [StorefrontProductsService, SellerProductsService],
+  exports: [StorefrontProductsService, SellerProductsService],
 })
 export class ProductsModule {}
