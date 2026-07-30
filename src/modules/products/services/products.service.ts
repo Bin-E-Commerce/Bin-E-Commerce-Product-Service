@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Brackets, Repository } from "typeorm";
+import { Brackets, In, Repository } from "typeorm";
 import { Product } from "../../../database/entities/product.entity";
 import { ListProductsQueryDto } from "../dto/list-products-query.dto";
 import type { PaginatedResponse } from "../types/paginated-response.type";
@@ -12,21 +12,13 @@ export class ProductsService {
     private readonly productRepository: Repository<Product>,
   ) {}
 
-  // Lấy danh sách product với filter cơ bản để FE/public page và import verification dùng chung.
+  // Lấy danh sách sản phẩm theo bộ lọc và phân trang để giao diện công khai và công cụ kiểm tra import dùng chung.
   async listProducts(
     query: ListProductsQueryDto,
   ): Promise<PaginatedResponse<Product>> {
     const page = query.page;
     const pageSize = query.pageSize;
-    const qb = this.productRepository
-      .createQueryBuilder("product")
-      .leftJoinAndSelect("product.brand", "brand")
-      .leftJoinAndSelect("product.externalShop", "externalShop")
-      .leftJoinAndSelect("product.images", "images")
-      .orderBy("product.createdAt", "DESC")
-      .addOrderBy("images.sortOrder", "ASC")
-      .skip((page - 1) * pageSize)
-      .take(pageSize);
+    const qb = this.productRepository.createQueryBuilder("product");
 
     if (query.categoryId) {
       qb.andWhere("product.categoryId = :categoryId", {
@@ -58,7 +50,7 @@ export class ProductsService {
 
     if (query.search?.trim()) {
       const keyword = `%${query.search.trim()}%`;
-      // Tìm trên name/slug/source id để admin dễ kiểm tra product vừa import từ nguồn ngoài.
+      // Tìm trên tên, slug và ID nguồn để kiểm tra sản phẩm import mà không phụ thuộc một trường duy nhất.
       qb.andWhere(
         new Brackets((builder) => {
           builder
@@ -69,7 +61,51 @@ export class ProductsService {
       );
     }
 
-    const [items, total] = await qb.getManyAndCount();
+    // Chỉ phân trang trên bảng products vì JOIN trực tiếp với images sẽ khiến nhiều ảnh của
+    // cùng một sản phẩm chiếm giới hạn trang và làm API trả thiếu sản phẩm.
+    const [total, idRows] = await Promise.all([
+      qb.clone().getCount(),
+      qb
+        .clone()
+        .select("product.id", "id")
+        .orderBy("product.createdAt", "DESC")
+        .offset((page - 1) * pageSize)
+        .limit(pageSize)
+        .getRawMany<{ id: string }>(),
+    ]);
+
+    const productIds = idRows.map((row) => row.id);
+    if (productIds.length === 0) {
+      return {
+        items: [],
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      };
+    }
+
+    const items = await this.productRepository.find({
+      where: { id: In(productIds) },
+      relations: {
+        brand: true,
+        externalShop: true,
+        images: true,
+      },
+    });
+
+    // Repository.find không bảo toàn thứ tự của danh sách IN, vì vậy cần sắp xếp lại theo
+    // thứ tự ID đã được phân trang và sắp xếp ảnh theo vị trí hiển thị của từng sản phẩm.
+    const positionById = new Map(
+      productIds.map((productId, index) => [productId, index]),
+    );
+    items.sort(
+      (left, right) =>
+        (positionById.get(left.id) ?? 0) - (positionById.get(right.id) ?? 0),
+    );
+    items.forEach((product) => {
+      product.images.sort((left, right) => left.sortOrder - right.sortOrder);
+    });
 
     return {
       items,
@@ -80,7 +116,7 @@ export class ProductsService {
     };
   }
 
-  // Lấy chi tiết product theo UUID, bao gồm brand, shop nguồn, ảnh, variant, option và thông số.
+  // Lấy chi tiết sản phẩm theo UUID cùng toàn bộ quan hệ cần cho màn hình chi tiết.
   async getProductById(id: string): Promise<Product> {
     const product = await this.productRepository.findOne({
       where: { id },
