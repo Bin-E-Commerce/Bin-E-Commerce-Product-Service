@@ -13,6 +13,7 @@ import { ProductVariant } from "../../database/entities/product-variant.entity";
 import { Product } from "../../database/entities/product.entity";
 import { SellerProductsController } from "./controllers/seller-products.controller";
 import { StorefrontProductsController } from "./controllers/storefront-products.controller";
+import { SellerProductAccessService } from "./services/seller-product-access.service";
 import { SellerProductsService } from "./services/seller-products.service";
 import { StorefrontProductsService } from "./services/storefront-products.service";
 
@@ -33,7 +34,11 @@ import { StorefrontProductsService } from "./services/storefront-products.servic
     ]),
   ],
   controllers: [StorefrontProductsController, SellerProductsController],
-  providers: [StorefrontProductsService, SellerProductsService],
+  providers: [
+    StorefrontProductsService,
+    SellerProductAccessService,
+    SellerProductsService,
+  ],
   exports: [StorefrontProductsService, SellerProductsService],
 })
 export class ProductsModule {}

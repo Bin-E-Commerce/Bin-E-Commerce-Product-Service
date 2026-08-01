@@ -1,0 +1,63 @@
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { Permission } from "@common/auth";
+import type { SellerProductUserContext } from "../types/seller-product-user-context.type";
+
+@Injectable()
+export class SellerProductAccessService {
+  // Tạo user context từ header nội bộ do API Gateway xác thực và ký sinh vào request.
+  // Product Service không nhận ownerId từ query/body để người dùng không thể đổi ID và đọc sản phẩm shop khác.
+  buildCurrentUserFromHeaders(
+    headers: Record<string, unknown>,
+  ): SellerProductUserContext {
+    return {
+      userId: this.getHeaderValue(headers, "x-user-id") ?? "",
+      email: this.getHeaderValue(headers, "x-user-email") ?? "",
+      permissions: this.parseHeaderList(
+        this.getHeaderValue(headers, "x-user-permissions") ?? "",
+      ),
+    };
+  }
+
+  // Kiểm tra lại permission tại Product Service để endpoint vẫn an toàn nếu hạ tầng nội bộ gọi thẳng, bỏ qua Gateway.
+  ensureCanReadProducts(
+    currentUser: SellerProductUserContext,
+  ): SellerProductUserContext {
+    if (!currentUser.userId || !currentUser.email) {
+      throw new UnauthorizedException(
+        "Bạn cần đăng nhập để xem sản phẩm của shop.",
+      );
+    }
+
+    if (
+      !currentUser.permissions.includes(Permission.SELLER_PRODUCT_READ)
+    ) {
+      throw new ForbiddenException(
+        "Bạn không có quyền xem sản phẩm của shop.",
+      );
+    }
+
+    return currentUser;
+  }
+
+  // Đọc an toàn header đơn hoặc header lặp vì Node/Nest chuẩn hóa tên header thành lowercase.
+  private getHeaderValue(
+    headers: Record<string, unknown>,
+    key: string,
+  ): string | undefined {
+    const value = headers[key];
+    if (Array.isArray(value)) return value[0];
+    return typeof value === "string" ? value : undefined;
+  }
+
+  // Chuẩn hóa danh sách permission phân cách bằng dấu phẩy trước khi so khớp chính xác.
+  private parseHeaderList(value: string): string[] {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+}
