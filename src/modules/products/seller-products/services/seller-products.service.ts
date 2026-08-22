@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, In, Repository, SelectQueryBuilder } from "typeorm";
 import { Product } from "../../../../database/entities/product.entity";
-import { ListSellerProductsQueryDto } from "../dto/list-seller-products-query.dto";
+import { ListSellerProductsQueryDto } from "../dto/queries/list-seller-products-query.dto";
 import { ProductOriginType } from "../../shared/enums/product-origin-type.enum";
 import { ProductStatus } from "../../shared/enums/product-status.enum";
 import { SellerProductSortBy } from "../enums/seller-product-sort.enum";

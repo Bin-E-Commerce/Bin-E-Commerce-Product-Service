@@ -8,11 +8,11 @@ import {
   Max,
   Min,
 } from "class-validator";
-import { ProductStatus } from "../../shared/enums/product-status.enum";
+import { ProductStatus } from "../../../shared/enums/product-status.enum";
 import {
   SellerProductSortBy,
   SellerProductSortOrder,
-} from "../enums/seller-product-sort.enum";
+} from "../../enums/seller-product-sort.enum";
 
 export class ListSellerProductsQueryDto {
   @IsOptional()

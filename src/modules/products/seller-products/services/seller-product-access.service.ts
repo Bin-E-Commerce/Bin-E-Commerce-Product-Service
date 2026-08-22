@@ -62,6 +62,25 @@ export class SellerProductAccessService {
     return currentUser;
   }
 
+  // Kiểm tra quyền cập nhật ở service đích để request nội bộ bị gọi vòng qua Gateway vẫn không thể sửa dữ liệu.
+  ensureCanUpdateProduct(
+    currentUser: SellerProductUserContext,
+  ): SellerProductUserContext {
+    if (!currentUser.userId || !currentUser.email) {
+      throw new UnauthorizedException(
+        "Bạn cần đăng nhập để chỉnh sửa sản phẩm của shop.",
+      );
+    }
+
+    if (!currentUser.permissions.includes(Permission.SELLER_PRODUCT_UPDATE)) {
+      throw new ForbiddenException(
+        "Bạn không có quyền chỉnh sửa sản phẩm của shop.",
+      );
+    }
+
+    return currentUser;
+  }
+
   // Đọc an toàn header đơn hoặc header lặp vì Node/Nest chuẩn hóa tên header thành lowercase.
   private getHeaderValue(
     headers: Record<string, unknown>,

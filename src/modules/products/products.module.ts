@@ -16,9 +16,11 @@ import { BrandsService } from "./brands/brands.service";
 import { SellerProductsController } from "./seller-products/seller-products.controller";
 import { CatalogClient } from "./seller-products/integrations/catalog.client";
 import { SellerShopClient } from "./seller-products/integrations/seller-shop.client";
+import { ProductMediaClient } from "./seller-products/integrations/product-media.client";
 import { ProductIdentifierService } from "./seller-products/services/product-identifier.service";
 import { SellerProductAccessService } from "./seller-products/services/seller-product-access.service";
 import { SellerProductCreationService } from "./seller-products/services/seller-product-creation.service";
+import { SellerProductUpdateService } from "./seller-products/services/seller-product-update.service";
 import { SellerProductValidatorService } from "./seller-products/services/seller-product-validator.service";
 import { SellerProductsService } from "./seller-products/services/seller-products.service";
 import { StorefrontProductsController } from "./storefront/storefront-products.controller";
@@ -50,9 +52,11 @@ import { StorefrontProductsService } from "./storefront/storefront-products.serv
     BrandsService,
     CatalogClient,
     SellerShopClient,
+    ProductMediaClient,
     ProductIdentifierService,
     SellerProductAccessService,
     SellerProductCreationService,
+    SellerProductUpdateService,
     SellerProductValidatorService,
     SellerProductsService,
   ],

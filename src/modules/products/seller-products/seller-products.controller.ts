@@ -6,16 +6,20 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   Query,
 } from "@nestjs/common";
 import type { Product } from "../../../database/entities/product.entity";
 import { CreateSellerProductDto } from "./dto/create-product/create-seller-product.dto";
-import { ListSellerProductsQueryDto } from "./dto/list-seller-products-query.dto";
+import { ListSellerProductsQueryDto } from "./dto/queries/list-seller-products-query.dto";
+import { UpdateSellerProductDto } from "./dto/update-product/update-seller-product.dto";
 import { SellerProductAccessService } from "./services/seller-product-access.service";
 import { SellerProductCreationService } from "./services/seller-product-creation.service";
+import { SellerProductUpdateService } from "./services/seller-product-update.service";
 import { SellerProductsService } from "./services/seller-products.service";
 import type { CreateProductResponse } from "./types/create-product-response.type";
 import type { SellerProductListResponse } from "./types/seller-product-list-response.type";
+import type { UpdateProductResponse } from "./types/update-product-response.type";
 
 // Tách namespace seller khỏi /products/:id để chuỗi "seller" không bị ParseUUIDPipe hiểu nhầm là product ID.
 @Controller("seller/products")
@@ -23,6 +27,7 @@ export class SellerProductsController {
   constructor(
     private readonly sellerProductAccessService: SellerProductAccessService,
     private readonly sellerProductCreationService: SellerProductCreationService,
+    private readonly sellerProductUpdateService: SellerProductUpdateService,
     private readonly sellerProductsService: SellerProductsService,
   ) {}
 
@@ -38,6 +43,25 @@ export class SellerProductsController {
       this.sellerProductAccessService.ensureCanCreateProduct(currentUser);
 
     return this.sellerProductCreationService.create(authorizedUser, dto);
+  }
+
+  // Cập nhật toàn bộ product graph sau khi kiểm tra quyền và ownership từ context do Gateway truyền xuống.
+  @Put(":productId")
+  updateOwnedProduct(
+    @Headers() headers: Record<string, unknown>,
+    @Param("productId", new ParseUUIDPipe()) productId: string,
+    @Body() dto: UpdateSellerProductDto,
+  ): Promise<UpdateProductResponse> {
+    const currentUser =
+      this.sellerProductAccessService.buildCurrentUserFromHeaders(headers);
+    const authorizedUser =
+      this.sellerProductAccessService.ensureCanUpdateProduct(currentUser);
+
+    return this.sellerProductUpdateService.update(
+      authorizedUser,
+      productId,
+      dto,
+    );
   }
 
   // Trả danh sách sản phẩm thuộc đúng seller đăng nhập sau khi kiểm tra lại quyền đọc tại service đích.
