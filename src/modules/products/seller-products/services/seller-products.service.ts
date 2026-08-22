@@ -1,10 +1,14 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, In, Repository, SelectQueryBuilder } from "typeorm";
-import { Product } from "../../../database/entities/product.entity";
+import { Product } from "../../../../database/entities/product.entity";
 import { ListSellerProductsQueryDto } from "../dto/list-seller-products-query.dto";
-import { ProductOriginType } from "../enums/product-origin-type.enum";
-import { ProductStatus } from "../enums/product-status.enum";
+import { ProductOriginType } from "../../shared/enums/product-origin-type.enum";
+import { ProductStatus } from "../../shared/enums/product-status.enum";
 import { SellerProductSortBy } from "../enums/seller-product-sort.enum";
 import type {
   SellerProductListItem,
@@ -73,6 +77,49 @@ export class SellerProductsService {
       totalItems,
       totalPages: Math.ceil(totalItems / query.pageSize),
     };
+  }
+
+  // Nạp đầy đủ dữ liệu vận hành của một sản phẩm và khóa truy vấn theo owner để seller không thể đọc sản phẩm shop khác.
+  async getOwnedProductById(
+    sellerOwnerId: string | undefined,
+    productId: string,
+  ): Promise<Product> {
+    const ownerId = this.requireSellerOwnerId(sellerOwnerId);
+    const product = await this.productRepository.findOne({
+      where: {
+        id: productId,
+        sellerOwnerId: ownerId,
+        originType: ProductOriginType.INTERNAL,
+      },
+      relations: {
+        brand: true,
+        images: true,
+        variants: {
+          inventory: true,
+          optionChoices: {
+            optionValue: {
+              option: true,
+            },
+          },
+        },
+        options: {
+          values: true,
+        },
+        attributeValues: true,
+        reviews: true,
+      },
+      order: {
+        images: { sortOrder: "ASC" },
+        options: { position: "ASC", values: { position: "ASC" } },
+      },
+    });
+
+    if (!product || product.status === ProductStatus.DELETED) {
+      // Dùng cùng phản hồi not-found cho ID không tồn tại và ID thuộc shop khác để không làm lộ ownership.
+      throw new NotFoundException("Không tìm thấy sản phẩm trong shop của bạn.");
+    }
+
+    return product;
   }
 
   // Bắt buộc request phải có UUID người dùng đã được gateway xác thực và chuyển tiếp xuống.

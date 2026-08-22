@@ -1,4 +1,4 @@
-import { ProductStatus } from "../enums/product-status.enum";
+import { ProductStatus } from "../../shared/enums/product-status.enum";
 
 export interface SellerProductListItem {
   id: string;

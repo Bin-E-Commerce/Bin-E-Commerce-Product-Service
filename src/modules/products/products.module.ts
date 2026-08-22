@@ -11,11 +11,18 @@ import { ProductReview } from "../../database/entities/product-review.entity";
 import { ProductVariantOptionValue } from "../../database/entities/product-variant-option-value.entity";
 import { ProductVariant } from "../../database/entities/product-variant.entity";
 import { Product } from "../../database/entities/product.entity";
-import { SellerProductsController } from "./controllers/seller-products.controller";
-import { StorefrontProductsController } from "./controllers/storefront-products.controller";
-import { SellerProductAccessService } from "./services/seller-product-access.service";
-import { SellerProductsService } from "./services/seller-products.service";
-import { StorefrontProductsService } from "./services/storefront-products.service";
+import { BrandsController } from "./brands/brands.controller";
+import { BrandsService } from "./brands/brands.service";
+import { SellerProductsController } from "./seller-products/seller-products.controller";
+import { CatalogClient } from "./seller-products/integrations/catalog.client";
+import { SellerShopClient } from "./seller-products/integrations/seller-shop.client";
+import { ProductIdentifierService } from "./seller-products/services/product-identifier.service";
+import { SellerProductAccessService } from "./seller-products/services/seller-product-access.service";
+import { SellerProductCreationService } from "./seller-products/services/seller-product-creation.service";
+import { SellerProductValidatorService } from "./seller-products/services/seller-product-validator.service";
+import { SellerProductsService } from "./seller-products/services/seller-products.service";
+import { StorefrontProductsController } from "./storefront/storefront-products.controller";
+import { StorefrontProductsService } from "./storefront/storefront-products.service";
 
 @Module({
   imports: [
@@ -33,10 +40,20 @@ import { StorefrontProductsService } from "./services/storefront-products.servic
       ProductReview,
     ]),
   ],
-  controllers: [StorefrontProductsController, SellerProductsController],
+  controllers: [
+    StorefrontProductsController,
+    BrandsController,
+    SellerProductsController,
+  ],
   providers: [
     StorefrontProductsService,
+    BrandsService,
+    CatalogClient,
+    SellerShopClient,
+    ProductIdentifierService,
     SellerProductAccessService,
+    SellerProductCreationService,
+    SellerProductValidatorService,
     SellerProductsService,
   ],
   exports: [StorefrontProductsService, SellerProductsService],

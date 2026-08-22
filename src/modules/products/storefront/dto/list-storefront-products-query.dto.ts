@@ -8,8 +8,8 @@ import {
   Max,
   Min,
 } from "class-validator";
-import { ProductOriginType } from "../enums/product-origin-type.enum";
-import { ProductStatus } from "../enums/product-status.enum";
+import { ProductOriginType } from "../../shared/enums/product-origin-type.enum";
+import { ProductStatus } from "../../shared/enums/product-status.enum";
 
 // Query dành riêng cho listing storefront; seller dùng DTO ownership riêng để không trộn hai ngữ cảnh.
 export class ListStorefrontProductsQueryDto {

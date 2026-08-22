@@ -1,8 +1,8 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query } from "@nestjs/common";
 import { Product } from "../../../database/entities/product.entity";
-import { ListStorefrontProductsQueryDto } from "../dto/list-storefront-products-query.dto";
-import { StorefrontProductsService } from "../services/storefront-products.service";
-import type { PaginatedProductResponse } from "../types/paginated-product-response.type";
+import type { PaginatedProductResponse } from "../shared/types/paginated-product-response.type";
+import { ListStorefrontProductsQueryDto } from "./dto/list-storefront-products-query.dto";
+import { StorefrontProductsService } from "./storefront-products.service";
 
 @Controller("products")
 export class StorefrontProductsController {

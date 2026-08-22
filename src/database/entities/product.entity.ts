@@ -9,8 +9,9 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
-import { ProductOriginType } from "../../modules/products/enums/product-origin-type.enum";
-import { ProductStatus } from "../../modules/products/enums/product-status.enum";
+import { ProductCondition } from "../../modules/products/shared/enums/product-condition.enum";
+import { ProductOriginType } from "../../modules/products/shared/enums/product-origin-type.enum";
+import { ProductStatus } from "../../modules/products/shared/enums/product-status.enum";
 import { Brand } from "./brand.entity";
 import { ExternalShop } from "./external-shop.entity";
 import { ProductImage } from "./product-image.entity";
@@ -95,6 +96,51 @@ export class Product {
   // Mô tả ngắn phục vụ card/listing.
   @Column({ name: "short_description", type: "text", nullable: true })
   shortDescription: string | null;
+
+  // Asset video gốc được Media Service quản lý; Product Service chỉ lưu tham chiếu để không sở hữu dữ liệu file.
+  @Column({ name: "video_asset_id", type: "uuid", nullable: true })
+  videoAssetId: string | null;
+
+  // URL phát video công khai do Media Service/CDN trả về.
+  @Column({ name: "video_url", type: "text", nullable: true })
+  videoUrl: string | null;
+
+  // Thời lượng dùng để kiểm soát UX ở listing và áp dụng rule video ngắn.
+  @Column({ name: "video_duration_seconds", type: "smallint", nullable: true })
+  videoDurationSeconds: number | null;
+
+  // Mã thương mại toàn cầu ở cấp sản phẩm; variant có thể có GTIN riêng nếu từng phân loại dùng mã khác nhau.
+  @Column({ type: "varchar", length: 32, nullable: true })
+  gtin: string | null;
+
+  // SKU cấp sản phẩm do seller tự quản lý, tách khỏi SKU bắt buộc của từng variant.
+  @Column({ name: "seller_sku", type: "varchar", length: 160, nullable: true })
+  sellerSku: string | null;
+
+  // Tình trạng hàng hóa được lưu có cấu trúc để storefront không phải suy luận từ mô tả.
+  @Column({
+    type: "enum",
+    enum: ProductCondition,
+    default: ProductCondition.NEW,
+  })
+  condition: ProductCondition;
+
+  // Xuất xứ do seller khai báo, độc lập với quốc gia của thương hiệu.
+  @Column({ name: "country_of_origin", type: "varchar", length: 120, nullable: true })
+  countryOfOrigin: string | null;
+
+  // Thông số kiện hàng phục vụ shipping-service tính cước ở giai đoạn tiếp theo.
+  @Column({ name: "package_weight_grams", type: "int", nullable: true })
+  packageWeightGrams: number | null;
+
+  @Column({ name: "package_length_cm", type: "numeric", precision: 10, scale: 2, nullable: true })
+  packageLengthCm: string | null;
+
+  @Column({ name: "package_width_cm", type: "numeric", precision: 10, scale: 2, nullable: true })
+  packageWidthCm: string | null;
+
+  @Column({ name: "package_height_cm", type: "numeric", precision: 10, scale: 2, nullable: true })
+  packageHeightCm: string | null;
 
   // Trạng thái vòng đời sản phẩm.
   @Column({

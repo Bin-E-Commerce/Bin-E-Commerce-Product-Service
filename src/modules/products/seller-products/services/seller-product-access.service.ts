@@ -43,6 +43,25 @@ export class SellerProductAccessService {
     return currentUser;
   }
 
+  // Chặn tạo sản phẩm ở service đích nếu request nội bộ không mang quyền create đã được Auth Service cấp.
+  ensureCanCreateProduct(
+    currentUser: SellerProductUserContext,
+  ): SellerProductUserContext {
+    if (!currentUser.userId || !currentUser.email) {
+      throw new UnauthorizedException(
+        "Bạn cần đăng nhập để thêm sản phẩm cho shop.",
+      );
+    }
+
+    if (!currentUser.permissions.includes(Permission.SELLER_PRODUCT_CREATE)) {
+      throw new ForbiddenException(
+        "Bạn không có quyền thêm sản phẩm cho shop.",
+      );
+    }
+
+    return currentUser;
+  }
+
   // Đọc an toàn header đơn hoặc header lặp vì Node/Nest chuẩn hóa tên header thành lowercase.
   private getHeaderValue(
     headers: Record<string, unknown>,

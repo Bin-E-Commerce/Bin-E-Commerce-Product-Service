@@ -8,7 +8,7 @@ import {
   Max,
   Min,
 } from "class-validator";
-import { ProductStatus } from "../enums/product-status.enum";
+import { ProductStatus } from "../../shared/enums/product-status.enum";
 import {
   SellerProductSortBy,
   SellerProductSortOrder,

@@ -2,8 +2,8 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, In, Repository } from "typeorm";
 import { Product } from "../../../database/entities/product.entity";
-import { ListStorefrontProductsQueryDto } from "../dto/list-storefront-products-query.dto";
-import type { PaginatedProductResponse } from "../types/paginated-product-response.type";
+import type { PaginatedProductResponse } from "../shared/types/paginated-product-response.type";
+import { ListStorefrontProductsQueryDto } from "./dto/list-storefront-products-query.dto";
 
 @Injectable()
 export class StorefrontProductsService {
