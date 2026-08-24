@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, In, Repository } from "typeorm";
 import { Product } from "../../../database/entities/product.entity";
+import { ProductStatus } from "../shared/enums/product-status.enum";
 import type { PaginatedProductResponse } from "../shared/types/paginated-product-response.type";
 import { ListStorefrontProductsQueryDto } from "./dto/list-storefront-products-query.dto";
 
@@ -19,6 +20,11 @@ export class StorefrontProductsService {
     const page = query.page;
     const pageSize = query.pageSize;
     const qb = this.productRepository.createQueryBuilder("product");
+
+    // DELETED là trạng thái nội bộ, luôn loại khỏi storefront dù client có truyền status nào trong query.
+    qb.andWhere("product.status != :deletedStatus", {
+      deletedStatus: ProductStatus.DELETED,
+    });
 
     if (query.categoryId) {
       qb.andWhere("product.categoryId = :categoryId", {
@@ -144,7 +150,7 @@ export class StorefrontProductsService {
       },
     });
 
-    if (!product) {
+    if (!product || product.status === ProductStatus.DELETED) {
       throw new NotFoundException("Không tìm thấy sản phẩm.");
     }
 

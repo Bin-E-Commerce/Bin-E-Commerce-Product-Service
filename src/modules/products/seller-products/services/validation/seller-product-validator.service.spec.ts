@@ -1,11 +1,11 @@
 import { BadRequestException } from "@nestjs/common";
-import { CreateSellerProductDto } from "../dto/create-product/create-seller-product.dto";
-import { ProductCondition } from "../../shared/enums/product-condition.enum";
-import { ProductStatus } from "../../shared/enums/product-status.enum";
+import { CreateSellerProductDto } from "../../dto/create-product/create-seller-product.dto";
+import { ProductCondition } from "../../../shared/enums/product-condition.enum";
+import { ProductStatus } from "../../../shared/enums/product-status.enum";
 import type {
   CatalogAttributeReference,
   CatalogCategoryReference,
-} from "../types/catalog-reference.type";
+} from "../../types/catalog-reference.type";
 import { SellerProductValidatorService } from "./seller-product-validator.service";
 
 const CATEGORY_ID = "2db6903a-9488-4df0-b54c-b38329d5fb87";

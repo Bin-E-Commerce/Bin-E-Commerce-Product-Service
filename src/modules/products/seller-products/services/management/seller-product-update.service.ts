@@ -14,35 +14,35 @@ import {
   QueryFailedError,
   Repository,
 } from "typeorm";
-import { Brand } from "../../../../database/entities/brand.entity";
-import { Inventory } from "../../../../database/entities/inventory.entity";
-import { ProductAttributeValue } from "../../../../database/entities/product-attribute-value.entity";
-import { ProductImage } from "../../../../database/entities/product-image.entity";
-import { ProductOptionValue } from "../../../../database/entities/product-option-value.entity";
-import { ProductOption } from "../../../../database/entities/product-option.entity";
-import { ProductVariantOptionValue } from "../../../../database/entities/product-variant-option-value.entity";
-import { ProductVariant } from "../../../../database/entities/product-variant.entity";
-import { Product } from "../../../../database/entities/product.entity";
-import { ProductOriginType } from "../../shared/enums/product-origin-type.enum";
-import { ProductStatus } from "../../shared/enums/product-status.enum";
-import { ProductVariantStatus } from "../../shared/enums/product-variant-status.enum";
-import { UpdateProductOptionDto } from "../dto/update-product/update-seller-product.dto";
-import { UpdateProductVariantDto } from "../dto/update-product/update-seller-product.dto";
-import { UpdateSellerProductDto } from "../dto/update-product/update-seller-product.dto";
-import { CreateSellerProductDto } from "../dto/create-product/create-seller-product.dto";
-import { CatalogClient } from "../integrations/catalog.client";
-import { ProductMediaClient } from "../integrations/product-media.client";
-import { SellerShopClient } from "../integrations/seller-shop.client";
-import type { ProductMediaReference } from "../types/product-media-reference.type";
-import type { CatalogAttributeReference } from "../types/catalog-reference.type";
-import type { SellerProductUserContext } from "../types/seller-product-user-context.type";
-import type { UpdateProductResponse } from "../types/update-product-response.type";
-import { ProductIdentifierService } from "./product-identifier.service";
-import { SellerProductValidatorService } from "./seller-product-validator.service";
+import { Brand } from "../../../../../database/entities/brand.entity";
+import { Inventory } from "../../../../../database/entities/inventory.entity";
+import { ProductAttributeValue } from "../../../../../database/entities/product-attribute-value.entity";
+import { ProductImage } from "../../../../../database/entities/product-image.entity";
+import { ProductOptionValue } from "../../../../../database/entities/product-option-value.entity";
+import { ProductOption } from "../../../../../database/entities/product-option.entity";
+import { ProductVariantOptionValue } from "../../../../../database/entities/product-variant-option-value.entity";
+import { ProductVariant } from "../../../../../database/entities/product-variant.entity";
+import { Product } from "../../../../../database/entities/product.entity";
+import { ProductOriginType } from "../../../shared/enums/product-origin-type.enum";
+import { ProductStatus } from "../../../shared/enums/product-status.enum";
+import { ProductVariantStatus } from "../../../shared/enums/product-variant-status.enum";
+import { UpdateProductOptionDto } from "../../dto/update-product/update-seller-product.dto";
+import { UpdateProductVariantDto } from "../../dto/update-product/update-seller-product.dto";
+import { UpdateSellerProductDto } from "../../dto/update-product/update-seller-product.dto";
+import { CreateSellerProductDto } from "../../dto/create-product/create-seller-product.dto";
+import { CatalogClient } from "../../integrations/catalog.client";
+import { ProductMediaClient } from "../../integrations/product-media.client";
+import { SellerShopClient } from "../../integrations/seller-shop.client";
+import type { ProductMediaReference } from "../../types/product-media-reference.type";
+import type { CatalogAttributeReference } from "../../types/catalog-reference.type";
+import type { SellerProductUserContext } from "../../types/seller-product-user-context.type";
+import type { UpdateProductResponse } from "../../types/update-product-response.type";
+import { ProductIdentifierService } from "../identity/product-identifier.service";
+import { SellerProductValidatorService } from "../validation/seller-product-validator.service";
 import {
   parseProductMediaReference,
   uniqueProductMediaReferences,
-} from "../utils/product-media-reference.util";
+} from "../../utils/product-media-reference.util";
 
 @Injectable()
 export class SellerProductUpdateService {

@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { CreateSellerProductDto } from "../dto/create-product/create-seller-product.dto";
+import { CreateSellerProductDto } from "../../dto/create-product/create-seller-product.dto";
 import type {
   CatalogAttributeReference,
   CatalogCategoryReference,
-} from "../types/catalog-reference.type";
+} from "../../types/catalog-reference.type";
 
 const SELECT_INPUT_TYPES = new Set(["SINGLE_SELECT", "MULTI_SELECT"]);
 const NUMBER_INPUT_TYPES = new Set(["INTEGER", "DECIMAL"]);

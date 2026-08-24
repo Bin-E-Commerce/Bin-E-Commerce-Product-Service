@@ -11,25 +11,25 @@ import {
   QueryFailedError,
   Repository,
 } from "typeorm";
-import { Brand } from "../../../../database/entities/brand.entity";
-import { Inventory } from "../../../../database/entities/inventory.entity";
-import { ProductAttributeValue } from "../../../../database/entities/product-attribute-value.entity";
-import { ProductImage } from "../../../../database/entities/product-image.entity";
-import { ProductOptionValue } from "../../../../database/entities/product-option-value.entity";
-import { ProductOption } from "../../../../database/entities/product-option.entity";
-import { ProductVariantOptionValue } from "../../../../database/entities/product-variant-option-value.entity";
-import { ProductVariant } from "../../../../database/entities/product-variant.entity";
-import { Product } from "../../../../database/entities/product.entity";
-import { CreateSellerProductDto } from "../dto/create-product/create-seller-product.dto";
-import { ProductOriginType } from "../../shared/enums/product-origin-type.enum";
-import { ProductVariantStatus } from "../../shared/enums/product-variant-status.enum";
-import { CatalogClient } from "../integrations/catalog.client";
-import { SellerShopClient } from "../integrations/seller-shop.client";
-import type { CatalogAttributeReference } from "../types/catalog-reference.type";
-import type { CreateProductResponse } from "../types/create-product-response.type";
-import type { SellerProductUserContext } from "../types/seller-product-user-context.type";
-import { ProductIdentifierService } from "./product-identifier.service";
-import { SellerProductValidatorService } from "./seller-product-validator.service";
+import { Brand } from "../../../../../database/entities/brand.entity";
+import { Inventory } from "../../../../../database/entities/inventory.entity";
+import { ProductAttributeValue } from "../../../../../database/entities/product-attribute-value.entity";
+import { ProductImage } from "../../../../../database/entities/product-image.entity";
+import { ProductOptionValue } from "../../../../../database/entities/product-option-value.entity";
+import { ProductOption } from "../../../../../database/entities/product-option.entity";
+import { ProductVariantOptionValue } from "../../../../../database/entities/product-variant-option-value.entity";
+import { ProductVariant } from "../../../../../database/entities/product-variant.entity";
+import { Product } from "../../../../../database/entities/product.entity";
+import { CreateSellerProductDto } from "../../dto/create-product/create-seller-product.dto";
+import { ProductOriginType } from "../../../shared/enums/product-origin-type.enum";
+import { ProductVariantStatus } from "../../../shared/enums/product-variant-status.enum";
+import { CatalogClient } from "../../integrations/catalog.client";
+import { SellerShopClient } from "../../integrations/seller-shop.client";
+import type { CatalogAttributeReference } from "../../types/catalog-reference.type";
+import type { CreateProductResponse } from "../../types/create-product-response.type";
+import type { SellerProductUserContext } from "../../types/seller-product-user-context.type";
+import { ProductIdentifierService } from "../identity/product-identifier.service";
+import { SellerProductValidatorService } from "../validation/seller-product-validator.service";
 
 @Injectable()
 export class SellerProductCreationService {

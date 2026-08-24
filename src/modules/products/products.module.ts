@@ -17,12 +17,14 @@ import { SellerProductsController } from "./seller-products/seller-products.cont
 import { CatalogClient } from "./seller-products/integrations/catalog.client";
 import { SellerShopClient } from "./seller-products/integrations/seller-shop.client";
 import { ProductMediaClient } from "./seller-products/integrations/product-media.client";
-import { ProductIdentifierService } from "./seller-products/services/product-identifier.service";
-import { SellerProductAccessService } from "./seller-products/services/seller-product-access.service";
-import { SellerProductCreationService } from "./seller-products/services/seller-product-creation.service";
-import { SellerProductUpdateService } from "./seller-products/services/seller-product-update.service";
-import { SellerProductValidatorService } from "./seller-products/services/seller-product-validator.service";
-import { SellerProductsService } from "./seller-products/services/seller-products.service";
+import { SellerProductAccessService } from "./seller-products/services/access/seller-product-access.service";
+import { ProductIdentifierService } from "./seller-products/services/identity/product-identifier.service";
+import { SellerProductCreationService } from "./seller-products/services/management/seller-product-creation.service";
+import { SellerProductUpdateService } from "./seller-products/services/management/seller-product-update.service";
+import { SellerProductDeletionService } from "./seller-products/services/lifecycle/seller-product-deletion.service";
+import { SellerProductStatusService } from "./seller-products/services/lifecycle/seller-product-status.service";
+import { SellerProductsService } from "./seller-products/services/queries/seller-products.service";
+import { SellerProductValidatorService } from "./seller-products/services/validation/seller-product-validator.service";
 import { StorefrontProductsController } from "./storefront/storefront-products.controller";
 import { StorefrontProductsService } from "./storefront/storefront-products.service";
 
@@ -56,6 +58,8 @@ import { StorefrontProductsService } from "./storefront/storefront-products.serv
     ProductIdentifierService,
     SellerProductAccessService,
     SellerProductCreationService,
+    SellerProductDeletionService,
+    SellerProductStatusService,
     SellerProductUpdateService,
     SellerProductValidatorService,
     SellerProductsService,

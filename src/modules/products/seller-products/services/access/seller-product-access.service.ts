@@ -4,7 +4,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { Permission } from "@common/auth";
-import type { SellerProductUserContext } from "../types/seller-product-user-context.type";
+import type { SellerProductUserContext } from "../../types/seller-product-user-context.type";
 
 @Injectable()
 export class SellerProductAccessService {
@@ -75,6 +75,46 @@ export class SellerProductAccessService {
     if (!currentUser.permissions.includes(Permission.SELLER_PRODUCT_UPDATE)) {
       throw new ForbiddenException(
         "Bạn không có quyền chỉnh sửa sản phẩm của shop.",
+      );
+    }
+
+    return currentUser;
+  }
+
+  // Kiểm tra permission delete tại Product Service để request nội bộ không thể bỏ qua lớp bảo vệ của Gateway.
+  ensureCanDeleteProduct(
+    currentUser: SellerProductUserContext,
+  ): SellerProductUserContext {
+    if (!currentUser.userId || !currentUser.email) {
+      throw new UnauthorizedException(
+        "Bạn cần đăng nhập để xóa sản phẩm của shop.",
+      );
+    }
+
+    if (!currentUser.permissions.includes(Permission.SELLER_PRODUCT_DELETE)) {
+      throw new ForbiddenException(
+        "Bạn không có quyền xóa sản phẩm của shop.",
+      );
+    }
+
+    return currentUser;
+  }
+
+  // Kiểm tra permission status riêng để thao tác bật/tắt không được suy diễn từ quyền sửa nội dung.
+  ensureCanChangeProductStatus(
+    currentUser: SellerProductUserContext,
+  ): SellerProductUserContext {
+    if (!currentUser.userId || !currentUser.email) {
+      throw new UnauthorizedException(
+        "Bạn cần đăng nhập để thay đổi trạng thái sản phẩm.",
+      );
+    }
+
+    if (
+      !currentUser.permissions.includes(Permission.SELLER_PRODUCT_STATUS_UPDATE)
+    ) {
+      throw new ForbiddenException(
+        "Bạn không có quyền thay đổi trạng thái sản phẩm.",
       );
     }
 

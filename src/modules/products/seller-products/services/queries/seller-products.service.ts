@@ -5,16 +5,16 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, In, Repository, SelectQueryBuilder } from "typeorm";
-import { Product } from "../../../../database/entities/product.entity";
-import { ListSellerProductsQueryDto } from "../dto/queries/list-seller-products-query.dto";
-import { ProductOriginType } from "../../shared/enums/product-origin-type.enum";
-import { ProductStatus } from "../../shared/enums/product-status.enum";
-import { SellerProductSortBy } from "../enums/seller-product-sort.enum";
+import { Product } from "../../../../../database/entities/product.entity";
+import { ListSellerProductsQueryDto } from "../../dto/queries/list-seller-products-query.dto";
+import { ProductOriginType } from "../../../shared/enums/product-origin-type.enum";
+import { ProductStatus } from "../../../shared/enums/product-status.enum";
+import { SellerProductSortBy } from "../../enums/seller-product-sort.enum";
 import type {
   SellerProductListItem,
   SellerProductListResponse,
   SellerProductSummary,
-} from "../types/seller-product-list-response.type";
+} from "../../types/seller-product-list-response.type";
 
 const SORT_COLUMN_BY_FIELD: Record<SellerProductSortBy, string> = {
   [SellerProductSortBy.UPDATED_AT]: "product.updatedAt",
