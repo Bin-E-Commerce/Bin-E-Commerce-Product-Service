@@ -177,4 +177,33 @@ describe("SellerProductAccessService", () => {
     // Assert: controller nhận lại context đã xác thực để truyền vào use case.
     expect(result).toBe(currentUser);
   });
+
+  it("rejects product restore when the restore permission is missing", () => {
+    // Arrange: seller có quyền xóa nhưng chưa được cấp quyền khôi phục.
+    const currentUser: SellerProductUserContext = {
+      userId: "seller-user-id",
+      email: "seller@bin.local",
+      permissions: [Permission.SELLER_PRODUCT_DELETE],
+    };
+
+    // Act/Assert: restore là capability riêng, không suy diễn từ delete.
+    expect(() => target.ensureCanRestoreProduct(currentUser)).toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it("returns the authenticated context when product restore is allowed", () => {
+    // Arrange: context có permission restore thuộc seller hiện tại.
+    const currentUser: SellerProductUserContext = {
+      userId: "seller-user-id",
+      email: "seller@bin.local",
+      permissions: [Permission.SELLER_PRODUCT_RESTORE],
+    };
+
+    // Act: kiểm tra lớp bảo vệ restore tại Product Service.
+    const result = target.ensureCanRestoreProduct(currentUser);
+
+    // Assert: controller nhận lại context đã xác thực để truyền vào use case.
+    expect(result).toBe(currentUser);
+  });
 });

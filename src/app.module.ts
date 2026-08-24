@@ -20,6 +20,7 @@ import { ProductsModule } from "./modules/products/products.module";
         password: config.get<string>("POSTGRES_PASSWORD"),
         database: config.get<string>("POSTGRES_DB"),
         entities: [__dirname + "/**/*.entity{.ts,.js}"],
+        migrations: [__dirname + "/database/migrations/*{.ts,.js}"],
         synchronize: config.get<string>("NODE_ENV") !== "production",
         ssl:
           config.get<string>("NODE_ENV") === "production"

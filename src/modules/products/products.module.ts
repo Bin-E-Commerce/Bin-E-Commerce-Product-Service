@@ -22,6 +22,7 @@ import { ProductIdentifierService } from "./seller-products/services/identity/pr
 import { SellerProductCreationService } from "./seller-products/services/management/seller-product-creation.service";
 import { SellerProductUpdateService } from "./seller-products/services/management/seller-product-update.service";
 import { SellerProductDeletionService } from "./seller-products/services/lifecycle/seller-product-deletion.service";
+import { SellerProductRestoreService } from "./seller-products/services/lifecycle/seller-product-restore.service";
 import { SellerProductStatusService } from "./seller-products/services/lifecycle/seller-product-status.service";
 import { SellerProductsService } from "./seller-products/services/queries/seller-products.service";
 import { SellerProductValidatorService } from "./seller-products/services/validation/seller-product-validator.service";
@@ -59,6 +60,7 @@ import { StorefrontProductsService } from "./storefront/storefront-products.serv
     SellerProductAccessService,
     SellerProductCreationService,
     SellerProductDeletionService,
+    SellerProductRestoreService,
     SellerProductStatusService,
     SellerProductUpdateService,
     SellerProductValidatorService,

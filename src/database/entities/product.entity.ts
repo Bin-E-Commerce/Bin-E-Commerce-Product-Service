@@ -25,6 +25,7 @@ import { ProductReview } from "./product-review.entity";
 @Index(["categoryId"])
 @Index(["sellerShopId"])
 @Index(["sellerOwnerId"])
+@Index(["sellerOwnerId", "status", "deletedAt"])
 @Index(["externalShopId"])
 @Index(["sourcePlatform", "externalProductId"], {
   unique: true,
@@ -149,6 +150,14 @@ export class Product {
     default: ProductStatus.DRAFT,
   })
   status: ProductStatus;
+
+  // Thời điểm sản phẩm chuyển sang DELETED để Seller Center hiển thị lịch sử xóa mềm.
+  @Column({ name: "deleted_at", type: "timestamptz", nullable: true })
+  deletedAt: Date | null;
+
+  // ID logic của user thực hiện xóa, không tạo foreign key vì user thuộc Auth Service.
+  @Column({ name: "deleted_by", type: "uuid", nullable: true })
+  deletedBy: string | null;
 
   // Giá thấp nhất tính từ các variant đang bán.
   @Column({ name: "min_price", type: "numeric", precision: 14, scale: 2, default: 0 })

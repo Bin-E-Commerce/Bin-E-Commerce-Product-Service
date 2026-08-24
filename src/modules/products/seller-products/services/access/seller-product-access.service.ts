@@ -121,6 +121,25 @@ export class SellerProductAccessService {
     return currentUser;
   }
 
+  // Kiểm tra quyền khôi phục riêng để chỉ seller được cấp capability này mới đưa product trở lại shop.
+  ensureCanRestoreProduct(
+    currentUser: SellerProductUserContext,
+  ): SellerProductUserContext {
+    if (!currentUser.userId || !currentUser.email) {
+      throw new UnauthorizedException(
+        "Bạn cần đăng nhập để khôi phục sản phẩm của shop.",
+      );
+    }
+
+    if (!currentUser.permissions.includes(Permission.SELLER_PRODUCT_RESTORE)) {
+      throw new ForbiddenException(
+        "Bạn không có quyền khôi phục sản phẩm của shop.",
+      );
+    }
+
+    return currentUser;
+  }
+
   // Đọc an toàn header đơn hoặc header lặp vì Node/Nest chuẩn hóa tên header thành lowercase.
   private getHeaderValue(
     headers: Record<string, unknown>,

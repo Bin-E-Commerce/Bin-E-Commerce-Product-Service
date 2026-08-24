@@ -46,7 +46,10 @@ export class SellerProductsService {
     query: ListSellerProductsQueryDto,
   ): Promise<SellerProductListResponse> {
     const ownerId = this.requireSellerOwnerId(sellerOwnerId);
-    const baseQuery = this.createOwnedProductsQuery(ownerId);
+    const baseQuery = this.createOwnedProductsQuery(
+      ownerId,
+      query.status === ProductStatus.DELETED,
+    );
 
     this.applyFilters(baseQuery, query);
 
@@ -138,19 +141,25 @@ export class SellerProductsService {
   // Chỉ sản phẩm INTERNAL mới thuộc Seller Center; sản phẩm crawl EXTERNAL không được trộn vào shop thật.
   private createOwnedProductsQuery(
     sellerOwnerId: string,
+    includeDeleted = false,
   ): SelectQueryBuilder<Product> {
-    return this.productRepository
+    const queryBuilder = this.productRepository
       .createQueryBuilder("product")
       .where("product.sellerOwnerId = :sellerOwnerId", { sellerOwnerId })
       .andWhere("product.originType = :originType", {
         originType: ProductOriginType.INTERNAL,
-      })
-      .andWhere("product.status != :deletedStatus", {
+      });
+
+    if (!includeDeleted) {
+      queryBuilder.andWhere("product.status != :deletedStatus", {
         deletedStatus: ProductStatus.DELETED,
       });
+    }
+
+    return queryBuilder;
   }
 
-  // Áp dụng bộ lọc seller trên query đã khóa ownership; trạng thái DELETED luôn bị loại khỏi màn hình vận hành.
+  // Áp dụng bộ lọc seller trên query đã khóa ownership; query DELETED được mở riêng từ listOwnedProducts.
   private applyFilters(
     queryBuilder: SelectQueryBuilder<Product>,
     query: ListSellerProductsQueryDto,
@@ -188,7 +197,7 @@ export class SellerProductsService {
   private async getSummary(
     sellerOwnerId: string,
   ): Promise<SellerProductSummary> {
-    const row = await this.createOwnedProductsQuery(sellerOwnerId)
+    const activeRow = await this.createOwnedProductsQuery(sellerOwnerId)
       .select("COUNT(product.id)", "total")
       .addSelect(
         `COUNT(product.id) FILTER (WHERE product.status = :activeStatus)`,
@@ -221,13 +230,19 @@ export class SellerProductsService {
         inactiveStatus: ProductStatus.INACTIVE,
       })
       .getRawOne<SellerProductSummaryRow>();
+    const deleted = await this.createOwnedProductsQuery(sellerOwnerId, true)
+      .andWhere("product.status = :deletedStatus", {
+        deletedStatus: ProductStatus.DELETED,
+      })
+      .getCount();
 
     return {
-      total: Number(row?.total ?? 0),
-      active: Number(row?.active ?? 0),
-      draft: Number(row?.draft ?? 0),
-      inactive: Number(row?.inactive ?? 0),
-      outOfStock: Number(row?.outOfStock ?? 0),
+      total: Number(activeRow?.total ?? 0),
+      active: Number(activeRow?.active ?? 0),
+      draft: Number(activeRow?.draft ?? 0),
+      inactive: Number(activeRow?.inactive ?? 0),
+      outOfStock: Number(activeRow?.outOfStock ?? 0),
+      deleted,
     };
   }
 
@@ -283,6 +298,7 @@ export class SellerProductsService {
       ratingAvg: product.ratingAvg,
       reviewCount: product.reviewCount,
       updatedAt: product.updatedAt,
+      deletedAt: product.deletedAt,
     };
   }
 }

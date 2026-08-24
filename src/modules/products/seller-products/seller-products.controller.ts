@@ -19,6 +19,7 @@ import { SellerProductAccessService } from "./services/access/seller-product-acc
 import { SellerProductCreationService } from "./services/management/seller-product-creation.service";
 import { SellerProductUpdateService } from "./services/management/seller-product-update.service";
 import { SellerProductDeletionService } from "./services/lifecycle/seller-product-deletion.service";
+import { SellerProductRestoreService } from "./services/lifecycle/seller-product-restore.service";
 import { SellerProductStatusService } from "./services/lifecycle/seller-product-status.service";
 import { SellerProductsService } from "./services/queries/seller-products.service";
 import type { CreateProductResponse } from "./types/create-product-response.type";
@@ -26,6 +27,7 @@ import type { SellerProductListResponse } from "./types/seller-product-list-resp
 import type { UpdateProductResponse } from "./types/update-product-response.type";
 import type { DeleteProductResponse } from "./types/delete-product-response.type";
 import type { ChangeProductStatusResponse } from "./types/change-product-status-response.type";
+import type { RestoreProductResponse } from "./types/restore-product-response.type";
 import { ChangeSellerProductStatusDto } from "./dto/change-status/change-seller-product-status.dto";
 
 // Tách namespace seller khỏi /products/:id để chuỗi "seller" không bị ParseUUIDPipe hiểu nhầm là product ID.
@@ -35,6 +37,7 @@ export class SellerProductsController {
     private readonly sellerProductAccessService: SellerProductAccessService,
     private readonly sellerProductCreationService: SellerProductCreationService,
     private readonly sellerProductDeletionService: SellerProductDeletionService,
+    private readonly sellerProductRestoreService: SellerProductRestoreService,
     private readonly sellerProductStatusService: SellerProductStatusService,
     private readonly sellerProductUpdateService: SellerProductUpdateService,
     private readonly sellerProductsService: SellerProductsService,
@@ -85,6 +88,20 @@ export class SellerProductsController {
       this.sellerProductAccessService.ensureCanDeleteProduct(currentUser);
 
     return this.sellerProductDeletionService.delete(authorizedUser, productId);
+  }
+
+  // Khôi phục product đã xóa mềm về INACTIVE sau khi kiểm tra permission và ownership.
+  @Post(":productId/restore")
+  restoreOwnedProduct(
+    @Headers() headers: Record<string, unknown>,
+    @Param("productId", new ParseUUIDPipe()) productId: string,
+  ): Promise<RestoreProductResponse> {
+    const currentUser =
+      this.sellerProductAccessService.buildCurrentUserFromHeaders(headers);
+    const authorizedUser =
+      this.sellerProductAccessService.ensureCanRestoreProduct(currentUser);
+
+    return this.sellerProductRestoreService.restore(authorizedUser, productId);
   }
 
   // Đổi trạng thái ACTIVE/INACTIVE bằng endpoint riêng để việc bật/tắt không trộn với payload cập nhật nội dung.

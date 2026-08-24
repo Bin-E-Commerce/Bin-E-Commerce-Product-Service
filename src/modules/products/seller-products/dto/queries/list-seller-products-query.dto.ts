@@ -23,11 +23,12 @@ export class ListSellerProductsQueryDto {
   search?: string;
 
   @IsOptional()
-  // Seller Center không hiển thị bản ghi đã xóa; reject ngay từ DTO để FE không nhận kết quả khác với filter đã gửi.
+  // Chỉ cho phép bốn lifecycle status mà Seller Center có tab/filter tương ứng.
   @IsIn([
     ProductStatus.DRAFT,
     ProductStatus.ACTIVE,
     ProductStatus.INACTIVE,
+    ProductStatus.DELETED,
   ])
   status?: ProductStatus;
 
