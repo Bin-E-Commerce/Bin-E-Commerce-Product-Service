@@ -15,6 +15,7 @@ import { Brand } from "../../../../../database/entities/brand.entity";
 import { Inventory } from "../../../../../database/entities/inventory.entity";
 import { ProductAttributeValue } from "../../../../../database/entities/product-attribute-value.entity";
 import { ProductImage } from "../../../../../database/entities/product-image.entity";
+import { parseProductMediaReference } from "../../utils/product-media-reference.util";
 import { ProductOptionValue } from "../../../../../database/entities/product-option-value.entity";
 import { ProductOption } from "../../../../../database/entities/product-option.entity";
 import { ProductVariantOptionValue } from "../../../../../database/entities/product-variant-option-value.entity";
@@ -113,7 +114,7 @@ export class SellerProductCreationService {
               altText: image.altText?.trim() || dto.name.trim(),
               sortOrder: image.sortOrder,
               isThumbnail: image.isThumbnail,
-              externalImageId: null,
+              externalImageId: parseProductMediaReference(image.imageUrl, "product_image")?.assetId ?? null,
             }),
           ),
         );

@@ -183,6 +183,18 @@ export class Product {
   @Column({ name: "view_count", type: "int", default: 0 })
   viewCount: number;
 
+  // Job toi uu anh gan nhat de Seller Center biet san pham nao da duoc AI ho tro.
+  @Column({ name: "ai_optimization_job_id", type: "uuid", nullable: true })
+  aiOptimizationJobId: string | null;
+
+  // Trang thai apply/rollback anh AI duoc luu cung product de storefront khong phai goi AI Service.
+  @Column({ name: "ai_optimization_status", type: "varchar", length: 32, nullable: true })
+  aiOptimizationStatus: string | null;
+
+  // Thoi diem seller duyet output AI gan nhat, dung cho analytics va retention cleanup.
+  @Column({ name: "ai_optimized_at", type: "timestamptz", nullable: true })
+  aiOptimizedAt: Date | null;
+
   // Nền tảng nguồn nếu là product crawl.
   @Column({ name: "source_platform", type: "varchar", length: 40, nullable: true })
   sourcePlatform: string | null;

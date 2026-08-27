@@ -299,6 +299,7 @@ export class SellerProductsService {
       reviewCount: product.reviewCount,
       updatedAt: product.updatedAt,
       deletedAt: product.deletedAt,
+      aiOptimizationStatus: product.aiOptimizationStatus,
     };
   }
 }

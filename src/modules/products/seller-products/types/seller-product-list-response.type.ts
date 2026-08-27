@@ -16,6 +16,7 @@ export interface SellerProductListItem {
   reviewCount: number;
   updatedAt: Date;
   deletedAt: Date | null;
+  aiOptimizationStatus: string | null;
 }
 
 export interface SellerProductSummary {

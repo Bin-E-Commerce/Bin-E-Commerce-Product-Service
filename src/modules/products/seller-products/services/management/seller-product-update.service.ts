@@ -228,7 +228,7 @@ export class SellerProductUpdateService {
           altText: image.altText?.trim() || product.name,
           sortOrder: image.sortOrder,
           isThumbnail: image.isThumbnail,
-          externalImageId: null,
+          externalImageId: parseProductMediaReference(image.imageUrl, "product_image")?.assetId ?? null,
         }),
       ),
     );

@@ -26,6 +26,7 @@ import { SellerProductRestoreService } from "./seller-products/services/lifecycl
 import { SellerProductStatusService } from "./seller-products/services/lifecycle/seller-product-status.service";
 import { SellerProductsService } from "./seller-products/services/queries/seller-products.service";
 import { SellerProductValidatorService } from "./seller-products/services/validation/seller-product-validator.service";
+import { SellerProductAiMediaService } from "./seller-products/services/media/seller-product-ai-media.service";
 import { StorefrontProductsController } from "./storefront/storefront-products.controller";
 import { StorefrontProductsService } from "./storefront/storefront-products.service";
 
@@ -64,6 +65,7 @@ import { StorefrontProductsService } from "./storefront/storefront-products.serv
     SellerProductStatusService,
     SellerProductUpdateService,
     SellerProductValidatorService,
+    SellerProductAiMediaService,
     SellerProductsService,
   ],
   exports: [StorefrontProductsService, SellerProductsService],

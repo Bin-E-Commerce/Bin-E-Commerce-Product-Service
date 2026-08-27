@@ -29,6 +29,9 @@ import type { DeleteProductResponse } from "./types/delete-product-response.type
 import type { ChangeProductStatusResponse } from "./types/change-product-status-response.type";
 import type { RestoreProductResponse } from "./types/restore-product-response.type";
 import { ChangeSellerProductStatusDto } from "./dto/change-status/change-seller-product-status.dto";
+import { ApplyAiMediaDto } from "./dto/ai-media/apply-ai-media.dto";
+import { SellerProductAiMediaService } from "./services/media/seller-product-ai-media.service";
+import type { AiMediaMutationResponse } from "./types/ai-media-response.type";
 
 // Tách namespace seller khỏi /products/:id để chuỗi "seller" không bị ParseUUIDPipe hiểu nhầm là product ID.
 @Controller("seller/products")
@@ -40,8 +43,33 @@ export class SellerProductsController {
     private readonly sellerProductRestoreService: SellerProductRestoreService,
     private readonly sellerProductStatusService: SellerProductStatusService,
     private readonly sellerProductUpdateService: SellerProductUpdateService,
+    private readonly sellerProductAiMediaService: SellerProductAiMediaService,
     private readonly sellerProductsService: SellerProductsService,
   ) {}
+
+  // Apply output AI trong Product Service sau khi ownership, permission va optimistic version da duoc xac nhan.
+  @Post(":productId/ai-media/apply")
+  applyAiMedia(
+    @Headers() headers: Record<string, unknown>,
+    @Param("productId", new ParseUUIDPipe()) productId: string,
+    @Body() dto: ApplyAiMediaDto,
+  ): Promise<AiMediaMutationResponse> {
+    const currentUser = this.sellerProductAccessService.buildCurrentUserFromHeaders(headers);
+    const authorizedUser = this.sellerProductAccessService.ensureCanApplyAiImage(currentUser);
+    return this.sellerProductAiMediaService.apply(authorizedUser, productId, dto);
+  }
+
+  // Rollback snapshot anh goc trong transaction de output AI khong lam mat du lieu seller.
+  @Post(":productId/ai-media/rollback")
+  rollbackAiMedia(
+    @Headers() headers: Record<string, unknown>,
+    @Param("productId", new ParseUUIDPipe()) productId: string,
+    @Body("jobId", new ParseUUIDPipe()) jobId: string,
+  ): Promise<AiMediaMutationResponse> {
+    const currentUser = this.sellerProductAccessService.buildCurrentUserFromHeaders(headers);
+    const authorizedUser = this.sellerProductAccessService.ensureCanRollbackAiImage(currentUser);
+    return this.sellerProductAiMediaService.rollback(authorizedUser, productId, jobId);
+  }
 
   // Tạo product graph cho đúng shop sở hữu; shopId luôn được backend suy ra từ danh tính đã xác thực.
   @Post()
