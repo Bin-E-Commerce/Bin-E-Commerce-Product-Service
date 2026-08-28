@@ -115,6 +115,8 @@ export class SellerProductCreationService {
               sortOrder: image.sortOrder,
               isThumbnail: image.isThumbnail,
               externalImageId: parseProductMediaReference(image.imageUrl, "product_image")?.assetId ?? null,
+              sourceAssetId: parseProductMediaReference(image.imageUrl, "product_image")?.assetId ?? null,
+              aiAssetId: null,
             }),
           ),
         );

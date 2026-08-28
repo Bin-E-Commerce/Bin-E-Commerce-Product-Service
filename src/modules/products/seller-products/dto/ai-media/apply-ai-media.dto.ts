@@ -1,36 +1,41 @@
+// DTO noi bo cho phep apply output AI theo asset nguon, khong thay the toan bo gallery san pham.
+
 import { IsArray, IsISO8601, IsOptional, IsString, IsUUID, MaxLength, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 
-/** Payload noi bo de Product Service apply output sau khi seller da duyet preview. */
+//  Payload noi bo de Product Service apply output sau khi seller da duyet preview.
 export class ApplyAiMediaItemDto {
-  /** Asset ID do Media Service cap, khong phai URL tu user tu nhap. */
+  //  Asset ID do Media Service cap, khong phai URL tu user tu nhap.
   @IsUUID()
   assetId: string;
 
-  /** CDN URL da duoc Media Service xac nhan va cap lai cho product. */
+  //  Asset ID goc de Product Service thay dung anh duoc toi uu va giu cac anh con lai.
+  @IsUUID()
+  sourceAssetId: string;
+
+  //  CDN URL da duoc Media Service xac nhan va cap lai cho product.
   @IsString()
   @MaxLength(2000)
   imageUrl: string;
 
-  /** Thu tu va co phai anh dai dien hay khong. */
+  //  Thu tu va co phai anh dai dien hay khong.
   @IsOptional()
   sortOrder?: number;
 }
 
-/** Request apply co optimistic concurrency de tranh ghi de cap nhat moi cua seller. */
+//  Request apply co optimistic concurrency de tranh ghi de cap nhat moi cua seller.
 export class ApplyAiMediaDto {
-  /** Job AI lam can cu audit va idempotency. */
+  //  Job AI lam can cu audit va idempotency.
   @IsUUID()
   jobId: string;
 
-  /** Version product luc seller xem preview. */
+  //  Version product luc seller xem preview.
   @IsISO8601()
   expectedProductUpdatedAt: string;
 
-  /** Danh sach output da chon de hien thi. */
+  //  Danh sach output da chon de hien thi.
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ApplyAiMediaItemDto)
   images: ApplyAiMediaItemDto[];
 }
-

@@ -133,7 +133,7 @@ export class SellerProductUpdateService {
         };
         await manager.save(Product, product);
 
-        await this.replaceImages(manager, product, dto);
+        await this.replaceImages(manager, product, dto, oldImages);
         const optionValueByClientId = await this.replaceOptions(
           manager,
           product.id,
@@ -216,21 +216,30 @@ export class SellerProductUpdateService {
     manager: EntityManager,
     product: Product,
     dto: UpdateSellerProductDto,
+    oldImages: ProductImage[],
   ): Promise<void> {
+    const oldByUrl = new Map(oldImages.map((image) => [image.imageUrl.trim(), image]));
     await manager.delete(ProductImage, { productId: product.id });
     await manager.save(
       ProductImage,
-      dto.images.map((image) =>
-        manager.create(ProductImage, {
+      dto.images.map((image) => {
+        const imageUrl = image.imageUrl.trim();
+        const previous = oldByUrl.get(imageUrl);
+        const parsedSourceAssetId = parseProductMediaReference(imageUrl, "product_image")?.assetId ?? null;
+        const sourceAssetId = previous?.sourceAssetId ?? parsedSourceAssetId;
+        return manager.create(ProductImage, {
           productId: product.id,
           variantId: null,
-          imageUrl: image.imageUrl,
+          imageUrl,
           altText: image.altText?.trim() || product.name,
           sortOrder: image.sortOrder,
           isThumbnail: image.isThumbnail,
-          externalImageId: parseProductMediaReference(image.imageUrl, "product_image")?.assetId ?? null,
-        }),
-      ),
+          // Giữ lineage nếu seller không thay URL; output AI không bị biến thành source mới ngoài ý muốn.
+          externalImageId: previous?.externalImageId ?? parsedSourceAssetId,
+          sourceAssetId,
+          aiAssetId: previous?.aiAssetId ?? null,
+        });
+      }),
     );
   }
 

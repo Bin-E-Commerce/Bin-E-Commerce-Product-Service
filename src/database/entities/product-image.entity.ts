@@ -59,6 +59,14 @@ export class ProductImage {
   @Column({ name: "external_image_id", type: "varchar", length: 160, nullable: true })
   externalImageId: string | null;
 
+  // ID asset gốc được dùng làm nguồn cho mọi lần tối ưu; giá trị này không bị ghi đè bởi output AI.
+  @Column({ name: "source_asset_id", type: "varchar", length: 160, nullable: true })
+  sourceAssetId: string | null;
+
+  // ID asset AI đang được hiển thị; giữ riêng để có thể tối ưu lại hoặc khôi phục ảnh gốc.
+  @Column({ name: "ai_asset_id", type: "varchar", length: 160, nullable: true })
+  aiAssetId: string | null;
+
   // Thời điểm ảnh được ghi vào database.
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;
