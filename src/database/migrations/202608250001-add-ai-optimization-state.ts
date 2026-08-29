@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 //  Migration them metadata AI vao product, khong thay doi anh goc dang duoc luu.
-export class AddAiOptimizationState202608250001 implements MigrationInterface {
+export class AddAiOptimizationState2026082500010 implements MigrationInterface {
   //  Tao cot nullable de product cu tiep tuc doc duoc truoc khi bat feature flag.
   async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query('ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "ai_optimization_job_id" uuid');

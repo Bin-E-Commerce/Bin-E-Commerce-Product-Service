@@ -1,9 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class AddProductDeletionMetadata202608240001
+export class AddProductDeletionMetadata2026082400010
   implements MigrationInterface
 {
-  name = "AddProductDeletionMetadata202608240001";
+  name = "AddProductDeletionMetadata2026082400010";
 
   // Thêm metadata xóa mềm và backfill thời điểm cho các bản ghi DELETED hiện hữu.
   public async up(queryRunner: QueryRunner): Promise<void> {

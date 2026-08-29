@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 //  Lưu quan hệ bất biến giữa ảnh gốc và output AI để sản phẩm có thể tối ưu nhiều lần.
-export class AddProductImageAiLineage202608280001 implements MigrationInterface {
+export class AddProductImageAiLineage2026082800010 implements MigrationInterface {
   //  Thêm cột lineage và backfill ảnh thường đang có mà không xóa bất kỳ media nào.
   async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
