@@ -109,6 +109,7 @@ export class CheckoutInventoryService {
           productId: variant.productId,
           variantId: variant.id,
           sellerShopId: variant.product.sellerShopId,
+          sellerOwnerId: variant.product.sellerOwnerId,
           sku: variant.sku,
           productName: variant.product.name,
           variantName: variant.name,
