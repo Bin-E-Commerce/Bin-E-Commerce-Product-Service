@@ -425,29 +425,43 @@ src/
 │   └── config/
 │       └── helmet.config.ts
 ├── database/
-│   └── entities/
-│       ├── product.entity.ts
-│       ├── product-variant.entity.ts
-│       ├── product-option.entity.ts
-│       ├── product-option-value.entity.ts
-│       ├── product-variant-option-value.entity.ts
-│       ├── product-image.entity.ts
-│       ├── inventory.entity.ts
-│       ├── brand.entity.ts
-│       ├── external-shop.entity.ts
-│       ├── product-attribute-value.entity.ts
-│       └── product-review.entity.ts
+│   ├── catalog/
+│   │   ├── entities/
+│   │   │   ├── product.entity.ts
+│   │   │   ├── product-variant.entity.ts
+│   │   │   ├── product-option.entity.ts
+│   │   │   ├── product-option-value.entity.ts
+│   │   │   ├── product-variant-option-value.entity.ts
+│   │   │   ├── product-image.entity.ts
+│   │   │   ├── brand.entity.ts
+│   │   │   ├── external-shop.entity.ts
+│   │   │   └── product-attribute-value.entity.ts
+│   │   └── enums/
+│   ├── reviews/entities/
+│   │   └── product-review.entity.ts
+│   ├── inventory/entities/
+│   │   └── inventory.entity.ts
+│   ├── checkout/
+│   │   ├── entities/
+│   │   │   └── checkout-reservation.entity.ts
+│   │   └── enums/
+│   │       └── checkout-reservation-status.enum.ts
+│   └── migrations/
 ├── modules/
+│   ├── brands/
+│   ├── checkout-inventory/
 │   ├── health/
-│   └── products/
-│       ├── controllers/
-│       ├── dto/
-│       ├── enums/
-│       ├── services/
-│       └── types/
+│   ├── internal/
+│   │   └── internal-product.controller.ts
+│   ├── seller-products/
+│   ├── shared/
+│   ├── storefront/
+│   └── products.module.ts
 ├── app.module.ts
 └── main.ts
 ```
+
+Persistence models are organized by domain. Catalog owns product configuration and product-related references; inventory owns stock records; checkout owns reservation ledgers; reviews owns product reviews. Migrations remain centralized so TypeORM can apply schema changes in one deterministic order.
 
 ---
 
