@@ -7,7 +7,7 @@ import { Repository } from "typeorm";
 import { Product } from "../../database/catalog/entities/product.entity";
 import { ProductOriginType } from "../../database/catalog/enums/product-origin-type.enum";
 import { ProductStatus } from "../../database/catalog/enums/product-status.enum";
-import { InternalServiceGuard } from "../checkout/guards/internal-service.guard";
+import { InternalServiceGuard } from "../checkout-inventory/guards/internal-service.guard";
 
 // Internal endpoint chỉ trả số liệu tối thiểu, không trả dữ liệu sản phẩm hoặc thông tin của shop khác.
 @Controller("internal/products")

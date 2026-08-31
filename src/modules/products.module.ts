@@ -33,7 +33,7 @@ import { SellerProductValidatorService } from "./seller-products/services/valida
 import { SellerProductAiMediaService } from "./seller-products/services/media/seller-product-ai-media.service";
 import { StorefrontProductsController } from "./storefront/storefront-products.controller";
 import { StorefrontProductsService } from "./storefront/storefront-products.service";
-import { CheckoutModule } from "./checkout/checkout.module";
+import { CheckoutModule } from "./checkout-inventory/checkout.module";
 
 @Module({
   imports: [
