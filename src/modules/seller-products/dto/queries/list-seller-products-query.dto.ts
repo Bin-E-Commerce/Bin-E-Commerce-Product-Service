@@ -13,7 +13,7 @@ import { ProductStatus } from "../../../../database/catalog/enums/product-status
 import {
   SellerProductSortBy,
   SellerProductSortOrder,
-} from "../../enums/seller-product-sort.enum";
+} from "../../../../database/catalog/enums/seller-product-sort.enum";
 
 export class ListSellerProductsQueryDto {
   @IsOptional()

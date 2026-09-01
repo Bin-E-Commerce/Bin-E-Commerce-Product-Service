@@ -12,7 +12,7 @@ import { ProductReviewLike } from "../../../../database/reviews/entities/product
 import { ListSellerProductsQueryDto } from "../../dto/queries/list-seller-products-query.dto";
 import { ProductOriginType } from "../../../../database/catalog/enums/product-origin-type.enum";
 import { ProductStatus } from "../../../../database/catalog/enums/product-status.enum";
-import { SellerProductSortBy } from "../../enums/seller-product-sort.enum";
+import { SellerProductSortBy } from "../../../../database/catalog/enums/seller-product-sort.enum";
 import { ReviewerProfileClient } from "../../../reviews/integrations/reviewer-profile.client";
 import { OrderSalesClient } from "../../integrations/order-sales.client";
 import type {
