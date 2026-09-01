@@ -11,6 +11,7 @@ import { ProductImage } from "../database/catalog/entities/product-image.entity"
 import { ProductOptionValue } from "../database/catalog/entities/product-option-value.entity";
 import { ProductOption } from "../database/catalog/entities/product-option.entity";
 import { ProductReview } from "../database/reviews/entities/product-review.entity";
+import { ProductReviewLike } from "../database/reviews/entities/product-review-like.entity";
 import { ProductVariantOptionValue } from "../database/catalog/entities/product-variant-option-value.entity";
 import { ProductVariant } from "../database/catalog/entities/product-variant.entity";
 import { Product } from "../database/catalog/entities/product.entity";
@@ -34,6 +35,14 @@ import { SellerProductAiMediaService } from "./seller-products/services/media/se
 import { StorefrontProductsController } from "./storefront/storefront-products.controller";
 import { StorefrontProductsService } from "./storefront/storefront-products.service";
 import { CheckoutModule } from "./checkout-inventory/checkout.module";
+import { ProductReviewController } from "./reviews/controllers/product-review.controller";
+import { MyReviewController } from "./reviews/controllers/my-review.controller";
+import { ReviewLikeController } from "./reviews/controllers/review-like.controller";
+import { ProductReviewService } from "./reviews/services/product-review.service";
+import { OrderReviewClient } from "./reviews/integrations/order-review.client";
+import { ReviewerProfileClient } from "./reviews/integrations/reviewer-profile.client";
+import { ReviewMediaClient } from "./reviews/integrations/review-media.client";
+import { OrderSalesClient } from "./seller-products/integrations/order-sales.client";
 
 @Module({
   imports: [
@@ -50,6 +59,7 @@ import { CheckoutModule } from "./checkout-inventory/checkout.module";
       Inventory,
       ProductAttributeValue,
       ProductReview,
+      ProductReviewLike,
     ]),
   ],
   controllers: [
@@ -57,6 +67,9 @@ import { CheckoutModule } from "./checkout-inventory/checkout.module";
     BrandsController,
     SellerProductsController,
     InternalProductController,
+    ProductReviewController,
+    MyReviewController,
+    ReviewLikeController,
   ],
   providers: [
     StorefrontProductsService,
@@ -74,6 +87,11 @@ import { CheckoutModule } from "./checkout-inventory/checkout.module";
     SellerProductValidatorService,
     SellerProductAiMediaService,
     SellerProductsService,
+    ProductReviewService,
+    OrderReviewClient,
+    ReviewerProfileClient,
+    ReviewMediaClient,
+    OrderSalesClient,
   ],
   exports: [StorefrontProductsService, SellerProductsService],
 })

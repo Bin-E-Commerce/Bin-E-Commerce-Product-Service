@@ -4,14 +4,19 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, In, Repository } from "typeorm";
 import { Product } from "../../database/catalog/entities/product.entity";
 import { ProductStatus } from "../../database/catalog/enums/product-status.enum";
+import { ProductReviewLike } from "../../database/reviews/entities/product-review-like.entity";
 import type { PaginatedProductResponse } from "../shared/types/paginated-product-response.type";
 import { ListStorefrontProductsQueryDto } from "./dto/list-storefront-products-query.dto";
+import { ReviewerProfileClient } from "../reviews/integrations/reviewer-profile.client";
 
 @Injectable()
 export class StorefrontProductsService {
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(ProductReviewLike)
+    private readonly reviewLikeRepository: Repository<ProductReviewLike>,
+    private readonly reviewerProfileClient: ReviewerProfileClient,
   ) {}
 
   // Lấy danh sách sản phẩm theo bộ lọc và phân trang để giao diện công khai và công cụ kiểm tra import dùng chung.
@@ -124,7 +129,7 @@ export class StorefrontProductsService {
   }
 
   // Lấy chi tiết sản phẩm theo UUID cùng toàn bộ quan hệ cần cho màn hình chi tiết.
-  async getStorefrontProductById(id: string): Promise<Product> {
+  async getStorefrontProductById(id: string, userId?: string): Promise<Product> {
     const product = await this.productRepository.findOne({
       where: { id },
       relations: {
@@ -143,7 +148,9 @@ export class StorefrontProductsService {
           values: true,
         },
         attributeValues: true,
-        reviews: true,
+        reviews: {
+          variant: true,
+        },
       },
       order: {
         images: { sortOrder: "ASC" },
@@ -154,6 +161,51 @@ export class StorefrontProductsService {
     if (!product || product.status === ProductStatus.DELETED) {
       throw new NotFoundException("Không tìm thấy sản phẩm.");
     }
+
+    // Public response chỉ chứa review approved; likeCount được tổng hợp riêng để không serialize userId của bảng like.
+    const publicReviews = product.reviews.filter(
+      (review) => review.status.toLowerCase() === "approved",
+    );
+    const reviewerProfiles = await this.reviewerProfileClient.getPublicProfiles(
+      publicReviews.filter((review) => !review.isAnonymous).map((review) => review.userId ?? ""),
+    );
+    const reviewIds = publicReviews.map((review) => review.id);
+    const likes = reviewIds.length
+      ? await this.reviewLikeRepository.find({ where: { reviewId: In(reviewIds) } })
+      : [];
+    const likeCountByReview = new Map<string, number>();
+    const likedReviewIds = new Set<string>();
+    likes.forEach((like) => {
+      likeCountByReview.set(like.reviewId, (likeCountByReview.get(like.reviewId) ?? 0) + 1);
+      if (userId && like.userId === userId) likedReviewIds.add(like.reviewId);
+    });
+    product.reviews = publicReviews.map((review) => ({
+      id: review.id,
+      rating: review.rating,
+      title: review.title,
+      content: review.content,
+      images: review.images ?? [],
+      videos: review.videos ?? [],
+      status: review.status,
+      createdAt: review.createdAt,
+      updatedAt: review.updatedAt,
+      isAnonymous: review.isAnonymous ?? false,
+      reviewerName: review.isAnonymous
+        ? null
+        : review.reviewerName ?? reviewerProfiles.get(review.userId ?? "")?.name ?? null,
+      reviewerAvatarUrl: review.isAnonymous
+        ? null
+        : review.reviewerAvatarUrl ?? reviewerProfiles.get(review.userId ?? "")?.avatarUrl ?? null,
+      variantName: review.variant?.name ?? null,
+      likeCount: likeCountByReview.get(review.id) ?? 0,
+      likedByCurrentUser: likedReviewIds.has(review.id),
+    })) as unknown as Product["reviews"];
+
+    // Tính lại summary từ review đang hiển thị để dữ liệu cũ không làm lệch điểm và số lượng trên storefront.
+    product.reviewCount = product.reviews.length;
+    product.ratingAvg = product.reviews.length
+      ? (product.reviews.reduce((total, review) => total + review.rating, 0) / product.reviews.length).toFixed(2)
+      : null;
 
     return product;
   }

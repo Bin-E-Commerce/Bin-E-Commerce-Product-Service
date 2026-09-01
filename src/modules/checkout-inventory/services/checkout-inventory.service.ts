@@ -13,6 +13,7 @@ import { CheckoutReservation } from "../../../database/checkout/entities/checkou
 import { CheckoutReservationStatus } from "../../../database/checkout/enums/checkout-reservation-status.enum";
 import { Inventory } from "../../../database/inventory/entities/inventory.entity";
 import { ProductVariant } from "../../../database/catalog/entities/product-variant.entity";
+import { Product } from "../../../database/catalog/entities/product.entity";
 import { ProductOriginType } from "../../../database/catalog/enums/product-origin-type.enum";
 import { ProductStatus } from "../../../database/catalog/enums/product-status.enum";
 import { ProductVariantStatus } from "../../../database/catalog/enums/product-variant-status.enum";
@@ -61,6 +62,7 @@ export class CheckoutInventoryService {
         variants.map((variant) => [variant.id, variant]),
       );
       const snapshots: CheckoutSnapshotItem[] = [];
+      const soldByProductId = new Map<string, number>();
 
       // Lock riêng các inventory row trước khi kiểm tra để hai order không cùng tiêu thụ một stock.
       const inventories = await manager
@@ -117,7 +119,12 @@ export class CheckoutInventoryService {
 
         inventory.quantityAvailable -= item.quantity;
         inventory.quantityReserved += item.quantity;
+        inventory.quantitySold += item.quantity;
         await manager.getRepository(Inventory).save(inventory);
+        soldByProductId.set(
+          variant.productId,
+          (soldByProductId.get(variant.productId) ?? 0) + item.quantity,
+        );
 
         snapshots.push({
           productId: variant.productId,
@@ -136,6 +143,11 @@ export class CheckoutInventoryService {
           packageWidthCm: Number(variant.product.packageWidthCm),
           packageHeightCm: Number(variant.product.packageHeightCm),
         });
+      }
+
+      // Ghi nhận sold cùng transaction với reservation để retry idempotent không cộng trùng lượt bán.
+      for (const [productId, quantity] of soldByProductId) {
+        await manager.getRepository(Product).increment({ id: productId }, "totalSold", quantity);
       }
 
       const response: CheckoutReservationResponse = {
@@ -212,10 +224,15 @@ export class CheckoutInventoryService {
       if (reservation?.status === CheckoutReservationStatus.RELEASED) return;
 
       // Cho phép hủy order tạo từ Phase 1 trước khi ledger được triển khai; lần release này sẽ tạo marker RELEASED.
-      const releaseItems = reservation
+      const releaseItems: Array<{
+        productId?: string;
+        variantId: string;
+        quantity: number;
+      }> = reservation
         ? (
             reservation.response as unknown as CheckoutReservationResponse
           ).items.map((item) => ({
+            productId: item.productId,
             variantId: item.variantId,
             quantity: item.quantity,
           }))
@@ -246,7 +263,16 @@ export class CheckoutInventoryService {
         }
         inventory.quantityReserved -= item.quantity;
         inventory.quantityAvailable += item.quantity;
+        inventory.quantitySold = Math.max(inventory.quantitySold - item.quantity, 0);
         await manager.getRepository(Inventory).save(inventory);
+
+        if (item.productId) {
+          // Không để dữ liệu cũ hoặc request retry làm totalSold âm khi hoàn tác reservation.
+          await manager.query(
+            `UPDATE products SET total_sold = GREATEST(total_sold - $1, 0) WHERE id = $2`,
+            [item.quantity, item.productId],
+          );
+        }
       }
       const releasedReservation =
         reservation ??

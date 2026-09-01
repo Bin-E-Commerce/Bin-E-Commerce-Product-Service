@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { HealthModule } from "./modules/health/health.module";
 import { ProductsModule } from "./modules/products.module";
+import { KafkaModule } from "./kafka/kafka.module";
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ProductsModule } from "./modules/products.module";
     }),
     HealthModule,
     ProductsModule,
+    KafkaModule,
   ],
 })
 export class AppModule {}

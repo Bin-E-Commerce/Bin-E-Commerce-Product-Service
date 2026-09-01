@@ -7,10 +7,14 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, In, Repository, SelectQueryBuilder } from "typeorm";
 import { Product } from "../../../../database/catalog/entities/product.entity";
+import { ProductReview } from "../../../../database/reviews/entities/product-review.entity";
+import { ProductReviewLike } from "../../../../database/reviews/entities/product-review-like.entity";
 import { ListSellerProductsQueryDto } from "../../dto/queries/list-seller-products-query.dto";
 import { ProductOriginType } from "../../../../database/catalog/enums/product-origin-type.enum";
 import { ProductStatus } from "../../../../database/catalog/enums/product-status.enum";
 import { SellerProductSortBy } from "../../enums/seller-product-sort.enum";
+import { ReviewerProfileClient } from "../../../reviews/integrations/reviewer-profile.client";
+import { OrderSalesClient } from "../../integrations/order-sales.client";
 import type {
   SellerProductListItem,
   SellerProductListResponse,
@@ -33,11 +37,23 @@ interface SellerProductSummaryRow {
   outOfStock: string;
 }
 
+interface SellerProductReviewMetricRow {
+  productId: string;
+  reviewCount: string;
+  ratingAvg: string | null;
+}
+
 @Injectable()
 export class SellerProductsService {
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(ProductReview)
+    private readonly productReviewRepository: Repository<ProductReview>,
+    @InjectRepository(ProductReviewLike)
+    private readonly reviewLikeRepository: Repository<ProductReviewLike>,
+    private readonly reviewerProfileClient: ReviewerProfileClient,
+    private readonly orderSalesClient: OrderSalesClient,
   ) {}
 
   // Lấy danh sách sản phẩm nội bộ thuộc đúng tài khoản seller đã được API Gateway xác thực.
@@ -70,7 +86,7 @@ export class SellerProductsService {
     const productIds = idRows.map((row) => row.id);
     const items =
       productIds.length > 0
-        ? await this.loadSellerProductItems(productIds)
+        ? await this.loadSellerProductItems(ownerId, productIds)
         : [];
 
     return {
@@ -121,6 +137,45 @@ export class SellerProductsService {
     if (!product || product.status === ProductStatus.DELETED) {
       // Dùng cùng phản hồi not-found cho ID không tồn tại và ID thuộc shop khác để không làm lộ ownership.
       throw new NotFoundException("Không tìm thấy sản phẩm trong shop của bạn.");
+    }
+
+    // Seller detail dùng cùng summary với review approved thực tế để legacy product không còn hiển thị số liệu stale.
+    const approvedReviews = product.reviews.filter(
+      (review) => review.status.toLowerCase() === "approved",
+    );
+    const reviewIds = approvedReviews.map((review) => review.id);
+    const likes = reviewIds.length
+      ? await this.reviewLikeRepository.find({ where: { reviewId: In(reviewIds) } })
+      : [];
+    const likeCountByReview = new Map<string, number>();
+    likes.forEach((like) => {
+      likeCountByReview.set(like.reviewId, (likeCountByReview.get(like.reviewId) ?? 0) + 1);
+    });
+    const reviewerProfiles = await this.reviewerProfileClient.getPublicProfiles(
+      approvedReviews.filter((review) => !review.isAnonymous).map((review) => review.userId ?? ""),
+    );
+    product.reviews = product.reviews.map((review) => {
+      const profile = reviewerProfiles.get(review.userId ?? "");
+      return {
+        ...review,
+        isAnonymous: review.isAnonymous ?? false,
+        reviewerName: review.isAnonymous ? null : review.reviewerName ?? profile?.name ?? null,
+        reviewerAvatarUrl: review.isAnonymous ? null : review.reviewerAvatarUrl ?? profile?.avatarUrl ?? null,
+        likeCount: likeCountByReview.get(review.id) ?? 0,
+      };
+    });
+    product.reviewCount = approvedReviews.length;
+    product.ratingAvg = approvedReviews.length
+      ? (approvedReviews.reduce((total, review) => total + review.rating, 0) / approvedReviews.length).toFixed(2)
+      : null;
+
+    // Detail và list phải dùng cùng nguồn lượt bán để không hiển thị hai con số khác nhau cho một sản phẩm.
+    const soldQuantities = await this.orderSalesClient.getSoldQuantities(
+      ownerId,
+      [product.id],
+    );
+    if (soldQuantities?.has(product.id)) {
+      product.totalSold = soldQuantities.get(product.id) ?? product.totalSold;
     }
 
     return product;
@@ -250,6 +305,7 @@ export class SellerProductsService {
   // Nạp ảnh và variant sau khi đã phân trang trên products để một sản phẩm nhiều SKU vẫn chỉ chiếm một dòng.
   // Kết quả được sắp lại theo danh sách ID ban đầu vì điều kiện IN không bảo toàn thứ tự SQL.
   private async loadSellerProductItems(
+    sellerOwnerId: string,
     productIds: string[],
   ): Promise<SellerProductListItem[]> {
     const products = await this.productRepository.find({
@@ -269,11 +325,51 @@ export class SellerProductsService {
         (positionById.get(right.id) ?? 0),
     );
 
-    return products.map((product) => this.toListItem(product));
+    const [reviewMetrics, soldQuantities] = await Promise.all([
+      this.loadReviewMetrics(productIds),
+      this.orderSalesClient.getSoldQuantities(
+        sellerOwnerId,
+        productIds,
+      ),
+    ]);
+    return products.map((product) =>
+      this.toListItem(product, reviewMetrics.get(product.id), soldQuantities?.get(product.id)),
+    );
   }
 
-  // Chuyển entity đầy đủ thành DTO gọn cho bảng seller, đồng thời tính tồn kho từ các variant hiện tại.
-  private toListItem(product: Product): SellerProductListItem {
+  // Đọc lại summary review approved theo batch để bảng seller không phụ thuộc các cột denormalized đã cũ.
+  private async loadReviewMetrics(
+    productIds: string[],
+  ): Promise<Map<string, { reviewCount: number; ratingAvg: string | null }>> {
+    if (productIds.length === 0) return new Map();
+
+    const rows = await this.productReviewRepository
+      .createQueryBuilder("review")
+      .select("review.productId", "productId")
+      .addSelect("COUNT(review.id)", "reviewCount")
+      .addSelect("AVG(review.rating)", "ratingAvg")
+      .where("review.productId IN (:...productIds)", { productIds })
+      .andWhere("LOWER(review.status) = :status", { status: "approved" })
+      .groupBy("review.productId")
+      .getRawMany<SellerProductReviewMetricRow>();
+
+    return new Map(
+      rows.map((row) => [
+        row.productId,
+        {
+          reviewCount: Number(row.reviewCount),
+          ratingAvg: row.ratingAvg === null ? null : Number(row.ratingAvg).toFixed(2),
+        },
+      ]),
+    );
+  }
+
+  // Chuyển entity đầy đủ thành DTO gọn cho bảng seller và ưu tiên summary review vừa tính từ database.
+  private toListItem(
+    product: Product,
+    reviewMetric?: { reviewCount: number; ratingAvg: string | null },
+    soldQuantity?: number,
+  ): SellerProductListItem {
     const sortedImages = [...product.images].sort(
       (left, right) => left.sortOrder - right.sortOrder,
     );
@@ -295,9 +391,9 @@ export class SellerProductsService {
       totalStock,
       variantCount: product.variants.length,
       primarySku: product.variants[0]?.sku ?? null,
-      totalSold: product.totalSold,
-      ratingAvg: product.ratingAvg,
-      reviewCount: product.reviewCount,
+      totalSold: soldQuantity ?? product.totalSold,
+      ratingAvg: reviewMetric?.ratingAvg ?? null,
+      reviewCount: reviewMetric?.reviewCount ?? 0,
       updatedAt: product.updatedAt,
       deletedAt: product.deletedAt,
       aiOptimizationStatus: product.aiOptimizationStatus,

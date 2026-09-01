@@ -6,11 +6,13 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
 import { Product } from "../../catalog/entities/product.entity";
 import { ProductVariant } from "../../catalog/entities/product-variant.entity";
+import { ProductReviewLike } from "./product-review-like.entity";
 
 @Entity("product_reviews")
 @Index(["productId"])
@@ -26,6 +28,26 @@ export class ProductReview {
   // User nội bộ nếu review do khách hàng Bin tạo; null với review crawl.
   @Column({ name: "user_id", type: "uuid", nullable: true })
   userId: string | null;
+
+  // Luu snapshot ten nguoi mua tai thoi diem danh gia de review khong bi mat danh tinh khi user doi profile.
+  @Column({ name: "reviewer_name", type: "varchar", length: 160, nullable: true })
+  reviewerName: string | null;
+
+  // Avatar hien thi tuy chon; UI fallback sang chu cai dau ten neu token khong co avatar.
+  @Column({ name: "reviewer_avatar_url", type: "varchar", length: 1000, nullable: true })
+  reviewerAvatarUrl: string | null;
+
+  // Customer có thể chọn ẩn danh; hệ thống vẫn giữ snapshot gốc để có thể bật lại khi chỉnh sửa review.
+  @Column({ name: "is_anonymous", type: "boolean", default: false })
+  isAnonymous: boolean;
+
+  // Purchase proof do Order Service cấp; review crawl có thể để null để giữ tương thích dữ liệu cũ.
+  @Column({ name: "order_id", type: "uuid", nullable: true })
+  orderId: string | null;
+
+  // Gắn review vào đúng dòng hàng để mỗi sản phẩm trong một order chỉ được đánh giá một lần.
+  @Column({ name: "order_item_id", type: "uuid", nullable: true })
+  orderItemId: string | null;
 
   // Product được review.
   @Column({ name: "product_id", type: "uuid" })
@@ -45,6 +67,14 @@ export class ProductReview {
   @JoinColumn({ name: "variant_id" })
   variant: ProductVariant | null;
 
+  // Các lượt thích được tách thành bảng riêng để đếm nhanh và chống một user thích trùng.
+  @OneToMany(() => ProductReviewLike, (like) => like.review)
+  likes: ProductReviewLike[];
+
+  // Hai field read-only này được gắn khi dựng response, không lưu vào database và không làm lộ danh sách user đã thích.
+  likeCount?: number;
+  likedByCurrentUser?: boolean;
+
   // Điểm đánh giá từ 1 đến 5.
   @Column({ type: "int" })
   rating: number;
@@ -53,9 +83,17 @@ export class ProductReview {
   @Column({ type: "text", nullable: true })
   content: string | null;
 
+  // Tiêu đề tùy chọn giúp review dài dễ quét hơn; nội dung chính vẫn nằm ở content để tương thích UI hiện tại.
+  @Column({ type: "varchar", length: 200, nullable: true })
+  title: string | null;
+
   // Danh sách ảnh review.
   @Column({ type: "jsonb", default: () => "'[]'::jsonb" })
   images: string[];
+
+  // Danh sach video review dang URL CDN goc; video khong dung pipeline WebP cua anh.
+  @Column({ type: "jsonb", default: () => "'[]'::jsonb" })
+  videos: string[];
 
   // Trạng thái kiểm duyệt review.
   @Column({ type: "varchar", length: 40, default: "approved" })
