@@ -8,6 +8,7 @@ import { ProductReviewLike } from "../../database/reviews/entities/product-revie
 import type { PaginatedProductResponse } from "../shared/types/paginated-product-response.type";
 import { ListStorefrontProductsQueryDto } from "./dto/list-storefront-products-query.dto";
 import { ReviewerProfileClient } from "../reviews/integrations/reviewer-profile.client";
+import { OrderSalesClient } from "../seller-products/integrations/order-sales.client";
 
 @Injectable()
 export class StorefrontProductsService {
@@ -17,6 +18,7 @@ export class StorefrontProductsService {
     @InjectRepository(ProductReviewLike)
     private readonly reviewLikeRepository: Repository<ProductReviewLike>,
     private readonly reviewerProfileClient: ReviewerProfileClient,
+    private readonly orderSalesClient: OrderSalesClient,
   ) {}
 
   // Lấy danh sách sản phẩm theo bộ lọc và phân trang để giao diện công khai và công cụ kiểm tra import dùng chung.
@@ -118,6 +120,7 @@ export class StorefrontProductsService {
     items.forEach((product) => {
       product.images.sort((left, right) => left.sortOrder - right.sortOrder);
     });
+    await this.syncCompletedSales(items);
 
     return {
       items,
@@ -206,7 +209,35 @@ export class StorefrontProductsService {
     product.ratingAvg = product.reviews.length
       ? (product.reviews.reduce((total, review) => total + review.rating, 0) / product.reviews.length).toFixed(2)
       : null;
+    await this.syncCompletedSales([product]);
 
     return product;
+  }
+
+  // Đồng bộ số lượng đã bán từ Order Service để storefront không lấy counter tăng ngay lúc checkout.
+  private async syncCompletedSales(products: Product[]): Promise<void> {
+    const productsByOwner = new Map<string, Product[]>();
+    products.forEach((product) => {
+      if (!product.sellerOwnerId) return;
+      const ownerProducts = productsByOwner.get(product.sellerOwnerId) ?? [];
+      ownerProducts.push(product);
+      productsByOwner.set(product.sellerOwnerId, ownerProducts);
+    });
+
+    const ownerResults = await Promise.all(
+      [...productsByOwner.entries()].map(async ([sellerOwnerId, ownerProducts]) => ({
+        products: ownerProducts,
+        soldQuantities: await this.orderSalesClient.getSoldQuantities(
+          sellerOwnerId,
+          ownerProducts.map((product) => product.id),
+        ),
+      })),
+    );
+
+    ownerResults.forEach(({ products: ownerProducts, soldQuantities }) => {
+      ownerProducts.forEach((product) => {
+        product.totalSold = soldQuantities?.get(product.id) ?? 0;
+      });
+    });
   }
 }

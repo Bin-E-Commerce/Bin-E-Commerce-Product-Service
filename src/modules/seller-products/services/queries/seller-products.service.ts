@@ -174,9 +174,7 @@ export class SellerProductsService {
       ownerId,
       [product.id],
     );
-    if (soldQuantities?.has(product.id)) {
-      product.totalSold = soldQuantities.get(product.id) ?? product.totalSold;
-    }
+    product.totalSold = soldQuantities?.get(product.id) ?? 0;
 
     return product;
   }
@@ -271,8 +269,10 @@ export class SellerProductsService {
         `COUNT(product.id) FILTER (
           WHERE COALESCE(
             (
-              SELECT SUM(summary_variant.stock_quantity)
+              SELECT SUM(COALESCE(summary_inventory.quantity_available, 0))
               FROM product_variants summary_variant
+              LEFT JOIN inventories summary_inventory
+                ON summary_inventory.variant_id = summary_variant.id
               WHERE summary_variant.product_id = product.id
             ),
             0
@@ -312,7 +312,9 @@ export class SellerProductsService {
       where: { id: In(productIds) },
       relations: {
         images: true,
-        variants: true,
+        variants: {
+          inventory: true,
+        },
       },
     });
     const positionById = new Map(
@@ -333,7 +335,11 @@ export class SellerProductsService {
       ),
     ]);
     return products.map((product) =>
-      this.toListItem(product, reviewMetrics.get(product.id), soldQuantities?.get(product.id)),
+      this.toListItem(
+        product,
+        reviewMetrics.get(product.id),
+        soldQuantities?.get(product.id) ?? 0,
+      ),
     );
   }
 
@@ -376,7 +382,8 @@ export class SellerProductsService {
     const thumbnail =
       sortedImages.find((image) => image.isThumbnail) ?? sortedImages[0];
     const totalStock = product.variants.reduce(
-      (total, variant) => total + Math.max(variant.stockQuantity, 0),
+      (total, variant) =>
+        total + Math.max(variant.inventory?.quantityAvailable ?? 0, 0),
       0,
     );
 
@@ -391,7 +398,7 @@ export class SellerProductsService {
       totalStock,
       variantCount: product.variants.length,
       primarySku: product.variants[0]?.sku ?? null,
-      totalSold: soldQuantity ?? product.totalSold,
+      totalSold: soldQuantity ?? 0,
       ratingAvg: reviewMetric?.ratingAvg ?? null,
       reviewCount: reviewMetric?.reviewCount ?? 0,
       updatedAt: product.updatedAt,
