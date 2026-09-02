@@ -174,7 +174,10 @@ export class SellerProductsService {
       ownerId,
       [product.id],
     );
-    product.totalSold = soldQuantities?.get(product.id) ?? 0;
+    // Chỉ ghi đè bằng dữ liệu Order Service khi truy vấn thành công; null là lỗi tạm thời và phải giữ counter local.
+    if (soldQuantities !== null) {
+      product.totalSold = soldQuantities.get(product.id) ?? 0;
+    }
 
     return product;
   }
@@ -338,7 +341,9 @@ export class SellerProductsService {
       this.toListItem(
         product,
         reviewMetrics.get(product.id),
-        soldQuantities?.get(product.id) ?? 0,
+        soldQuantities === null
+          ? product.totalSold
+          : soldQuantities.get(product.id) ?? 0,
       ),
     );
   }

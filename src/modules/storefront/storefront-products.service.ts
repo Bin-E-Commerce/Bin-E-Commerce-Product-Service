@@ -215,6 +215,7 @@ export class StorefrontProductsService {
   }
 
   // Đồng bộ số lượng đã bán từ Order Service để storefront không lấy counter tăng ngay lúc checkout.
+  // Khi Order Service tạm thời lỗi, giữ nguyên counter đã đọc từ Product DB thay vì ghi đè thành 0.
   private async syncCompletedSales(products: Product[]): Promise<void> {
     const productsByOwner = new Map<string, Product[]>();
     products.forEach((product) => {
@@ -235,8 +236,10 @@ export class StorefrontProductsService {
     );
 
     ownerResults.forEach(({ products: ownerProducts, soldQuantities }) => {
+      // null nghĩa là nguồn authoritative đang tạm thời không khả dụng; không được biến lỗi tích hợp thành dữ liệu 0.
+      if (soldQuantities === null) return;
       ownerProducts.forEach((product) => {
-        product.totalSold = soldQuantities?.get(product.id) ?? 0;
+        product.totalSold = soldQuantities.get(product.id) ?? 0;
       });
     });
   }
