@@ -1,10 +1,13 @@
+// File này phân tích URL media do Media Service phát hành để cleanup đúng owner và purpose.
+// Chỉ nhận media review và bằng chứng hoàn hàng; không nhận purpose settlement đã loại bỏ.
+
 import type {
   ReviewMediaPurpose,
   ReviewMediaReference,
 } from "../types/review-media-reference.type";
 
 const REVIEW_MEDIA_PATH_PATTERN =
-  /\/(?:media\/processed|uploads\/original)\/(review_image|review_video)\/([^/]+)\/([0-9a-f-]{36})(?:\/|$)/i;
+  /\/(?:media\/processed|uploads\/original)\/(review_image|review_video|return_image|return_video)\/([^/]+)\/([0-9a-f-]{36})(?:\/|$)/i;
 
 // Trích asset ID và owner từ URL CDN do Media Service phát hành để Product Service chỉ cleanup đúng media review của user.
 export function parseReviewMediaReference(
