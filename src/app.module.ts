@@ -1,3 +1,6 @@
+// File này lắp dependency graph của Product Service.
+// Database schema chỉ được thay đổi qua migration; runtime không tự đồng bộ entity để tránh race condition và mất kiểm soát schema.
+
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
@@ -23,7 +26,8 @@ import { KafkaModule } from "./kafka/kafka.module";
         entities: [__dirname + "/**/*.entity{.ts,.js}"],
         migrations: [__dirname + "/database/migrations/*{.ts,.js}"],
         migrationsRun: true,
-        synchronize: config.get<string>("NODE_ENV") !== "production",
+        // Không chạy synchronize kể cả ở local; migration là nguồn schema duy nhất của Product Service.
+        synchronize: false,
         ssl:
           config.get<string>("NODE_ENV") === "production"
             ? { rejectUnauthorized: false }
