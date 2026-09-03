@@ -3,6 +3,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, In, Repository } from "typeorm";
 import { Product } from "../../../../database/catalog/entities/product.entity";
+import { ExternalShop } from "../../../../database/catalog/entities/external-shop.entity";
 import { ProductVariant } from "../../../../database/catalog/entities/product-variant.entity";
 import { ProductOriginType } from "../../../../database/catalog/enums/product-origin-type.enum";
 import { ProductStatus } from "../../../../database/catalog/enums/product-status.enum";
@@ -23,6 +24,34 @@ export interface ShopCatalogSummary {
   categoryIds: string[];
 }
 
+// Read model public của shop crawl; không expose sourceUrl/sourcePlatform để shop hoạt động như dữ liệu nội bộ trên storefront.
+export interface PublicExternalShopResponse {
+  shop: {
+    id: string;
+    slug: string;
+    name: string;
+    logoUrl: string;
+    description: string | null;
+    mainCategoryId: string;
+    status: "active";
+    createdAt: Date;
+    location: {
+      province: string | null;
+      district: string | null;
+    };
+  };
+  stats: {
+    followerCount: number;
+    followingCount: number;
+  };
+  activity: {
+    isOnline: false;
+    lastActiveAt: null;
+  };
+  isFollowing: false;
+  shopType: "EXTERNAL";
+}
+
 // Read model public bổ sung cặp giá của cùng một variant để storefront hiển thị ưu đãi không bị lệch.
 export type StorefrontProduct = Product & {
   displayPrice: string;
@@ -35,6 +64,8 @@ export class StorefrontProductsService {
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(ExternalShop)
+    private readonly externalShopRepository: Repository<ExternalShop>,
     @InjectRepository(ProductVariant)
     private readonly productVariantRepository: Repository<ProductVariant>,
     @InjectRepository(ProductReviewLike)
@@ -264,6 +295,45 @@ export class StorefrontProductsService {
     return storefrontProduct;
   }
 
+  // Đọc shop crawl theo slug nội bộ để customer không bị chuyển ra trang của nền tảng nguồn.
+  // Response chỉ chứa dữ liệu public đã chuẩn hóa; sourcePlatform/sourceUrl vẫn được giữ ở persistence để truy vết nhưng không đi ra storefront.
+  async getExternalShopBySlug(slug: string): Promise<PublicExternalShopResponse> {
+    const shop = await this.externalShopRepository.findOne({
+      where: { slug },
+    });
+
+    if (!shop) {
+      throw new NotFoundException("Không tìm thấy shop.");
+    }
+
+    return {
+      shop: {
+        id: shop.id,
+        slug: shop.slug,
+        name: shop.name,
+        logoUrl: shop.avatarUrl ?? "",
+        description: shop.description,
+        mainCategoryId: "",
+        status: "active",
+        createdAt: shop.createdAt,
+        location: {
+          province: null,
+          district: null,
+        },
+      },
+      stats: {
+        followerCount: shop.followerCount,
+        followingCount: 0,
+      },
+      activity: {
+        isOnline: false,
+        lastActiveAt: null,
+      },
+      isFollowing: false,
+      shopType: "EXTERNAL",
+    };
+  }
+
   // Tổng hợp catalog public của shop bằng các query độc lập để header hiển thị nhanh và không lộ product inactive.
   async getShopSummary(shopId: string): Promise<ShopCatalogSummary> {
     const productQuery = this.productRepository
@@ -291,6 +361,54 @@ export class StorefrontProductsService {
       shopId,
       productCount,
       ratingAvg: reviewSummary?.ratingAvg ? Number(reviewSummary.ratingAvg).toFixed(2) : null,
+      reviewCount: Number(reviewSummary?.reviewCount ?? 0),
+      categoryIds: categoryRows.map((row) => row.categoryId),
+    };
+  }
+
+  // Tổng hợp số liệu của shop crawl theo external_shop_id để trang shop nội bộ dùng cùng layout với seller shop.
+  async getExternalShopSummary(shopId: string): Promise<ShopCatalogSummary> {
+    const productQuery = this.productRepository
+      .createQueryBuilder("product")
+      .where("product.externalShopId = :shopId", { shopId })
+      .andWhere("product.originType = :originType", {
+        originType: ProductOriginType.EXTERNAL,
+      })
+      .andWhere("product.status = :activeStatus", {
+        activeStatus: ProductStatus.ACTIVE,
+      });
+
+    const [productCount, categoryRows, reviewSummary] = await Promise.all([
+      productQuery.clone().getCount(),
+      productQuery
+        .clone()
+        .select("product.categoryId", "categoryId")
+        .distinct(true)
+        .getRawMany<{ categoryId: string }>(),
+      this.reviewRepository
+        .createQueryBuilder("review")
+        .innerJoin(Product, "product", "product.id = review.product_id")
+        .select("COUNT(review.id)", "reviewCount")
+        .addSelect("AVG(review.rating)", "ratingAvg")
+        .where("product.external_shop_id = :shopId", { shopId })
+        .andWhere("product.origin_type = :originType", {
+          originType: ProductOriginType.EXTERNAL,
+        })
+        .andWhere("product.status = :activeStatus", {
+          activeStatus: ProductStatus.ACTIVE,
+        })
+        .andWhere("LOWER(review.status) = :approvedStatus", {
+          approvedStatus: "approved",
+        })
+        .getRawOne<{ reviewCount: string; ratingAvg: string | null }>(),
+    ]);
+
+    return {
+      shopId,
+      productCount,
+      ratingAvg: reviewSummary?.ratingAvg
+        ? Number(reviewSummary.ratingAvg).toFixed(2)
+        : null,
       reviewCount: Number(reviewSummary?.reviewCount ?? 0),
       categoryIds: categoryRows.map((row) => row.categoryId),
     };
