@@ -1,9 +1,9 @@
 // Controller này công bố API đọc product public và không cho phép thay đổi catalog.
 import { Controller, Get, Headers, Param, ParseUUIDPipe, Query } from "@nestjs/common";
-import { Product } from "../../database/catalog/entities/product.entity";
 import type { PaginatedProductResponse } from "../shared/types/paginated-product-response.type";
 import { ListStorefrontProductsQueryDto } from "./dto/list-storefront-products-query.dto";
 import { StorefrontProductsService } from "./storefront-products.service";
+import type { ShopCatalogSummary, StorefrontProduct } from "./storefront-products.service";
 
 @Controller("products")
 export class StorefrontProductsController {
@@ -15,8 +15,14 @@ export class StorefrontProductsController {
   @Get()
   listStorefrontProducts(
     @Query() query: ListStorefrontProductsQueryDto,
-  ): Promise<PaginatedProductResponse<Product>> {
+  ): Promise<PaginatedProductResponse<StorefrontProduct>> {
     return this.storefrontProductsService.listStorefrontProducts(query);
+  }
+
+  // Trả summary của riêng shop để header public không phải tải toàn bộ catalog chỉ để đếm sản phẩm và review.
+  @Get("shops/:shopId/summary")
+  getShopSummary(@Param("shopId", ParseUUIDPipe) shopId: string): Promise<ShopCatalogSummary> {
+    return this.storefrontProductsService.getShopSummary(shopId);
   }
 
   // Trả chi tiết sản phẩm công khai theo ID; userId tùy chọn giúp response đánh dấu review hiện tại đã liked hay chưa.
@@ -24,7 +30,7 @@ export class StorefrontProductsController {
   getStorefrontProductById(
     @Param("id", ParseUUIDPipe) id: string,
     @Headers("x-user-id") userId?: string,
-  ): Promise<Product> {
+  ): Promise<StorefrontProduct> {
     return this.storefrontProductsService.getStorefrontProductById(id, userId);
   }
 }
