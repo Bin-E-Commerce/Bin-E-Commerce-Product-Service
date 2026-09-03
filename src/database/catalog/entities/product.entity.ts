@@ -26,6 +26,7 @@ import { ProductReview } from "../../reviews/entities/product-review.entity";
 @Index(["slug"], { unique: true })
 @Index(["categoryId"])
 @Index(["sellerShopId"])
+@Index("IDX_products_public_shop_catalog", ["sellerShopId", "status", "originType"])
 @Index(["sellerOwnerId"])
 @Index(["sellerOwnerId", "status", "deletedAt"])
 @Index(["externalShopId"])

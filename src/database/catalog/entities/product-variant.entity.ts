@@ -21,6 +21,7 @@ import { ProductVariantOptionValue } from "./product-variant-option-value.entity
 @Entity("product_variants")
 @Index(["sku"], { unique: true })
 @Index(["productId"])
+@Index("IDX_product_variants_stock_lookup", ["productId", "status", "stockQuantity"])
 @Index(["productId", "sellerSku"], {
   unique: true,
   where: "seller_sku IS NOT NULL",

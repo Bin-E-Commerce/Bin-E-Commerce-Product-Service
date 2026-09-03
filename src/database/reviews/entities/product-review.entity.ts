@@ -16,6 +16,7 @@ import { ProductReviewLike } from "./product-review-like.entity";
 
 @Entity("product_reviews")
 @Index(["productId"])
+@Index("IDX_product_reviews_product_status", ["productId", "status"])
 @Index(["sourcePlatform", "externalReviewId"], {
   unique: true,
   where: "source_platform IS NOT NULL AND external_review_id IS NOT NULL",
