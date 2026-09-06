@@ -11,17 +11,22 @@ import { ProductOriginType } from "../../../../../database/catalog/enums/product
 import { ProductStatus } from "../../../../../database/catalog/enums/product-status.enum";
 import type { DeleteProductResponse } from "../../types/delete-product-response.type";
 import type { SellerProductUserContext } from "../../types/seller-product-user-context.type";
+import { CatalogEventPublisherService } from "../events/catalog-event-publisher.service";
+import { Optional } from "@nestjs/common";
 
 @Injectable()
 export class SellerProductDeletionService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    @Optional() private readonly catalogEvents?: CatalogEventPublisherService,
+  ) {}
 
   // Khóa product theo ownership, kiểm tra vòng đời/bán hàng rồi chuyển sang DELETED trong một transaction.
   async delete(
     currentUser: SellerProductUserContext,
     productId: string,
   ): Promise<DeleteProductResponse> {
-    return this.dataSource.transaction(async (manager) => {
+    const response = await this.dataSource.transaction(async (manager) => {
       const product = await this.loadProductForDelete(
         manager,
         productId,
@@ -46,6 +51,11 @@ export class SellerProductDeletionService {
         updatedAt: product.updatedAt,
       };
     });
+    await this.catalogEvents?.publish(
+      productId,
+      CatalogEventPublisherService.topics.deleted,
+    );
+    return response;
   }
 
   // Chỉ cho phép xóa mềm bản nháp/ngừng bán và chặn sản phẩm đang bán hoặc đã phát sinh giao dịch.
@@ -82,7 +92,9 @@ export class SellerProductDeletionService {
     });
 
     if (!product || product.status === ProductStatus.DELETED) {
-      throw new NotFoundException("Không tìm thấy sản phẩm trong shop của bạn.");
+      throw new NotFoundException(
+        "Không tìm thấy sản phẩm trong shop của bạn.",
+      );
     }
 
     return product;

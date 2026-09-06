@@ -46,6 +46,8 @@ import {
 } from "../../utils/product-media-reference.util";
 import { ProductIdentifierService } from "../identity/product-identifier.service";
 import { SellerProductValidatorService } from "../validation/seller-product-validator.service";
+import { CatalogEventPublisherService } from "../events/catalog-event-publisher.service";
+import { Optional } from "@nestjs/common";
 
 @Injectable()
 export class SellerProductUpdateService {
@@ -62,6 +64,7 @@ export class SellerProductUpdateService {
     private readonly sellerShopClient: SellerShopClient,
     private readonly identifier: ProductIdentifierService,
     private readonly validator: SellerProductValidatorService,
+    @Optional() private readonly catalogEvents?: CatalogEventPublisherService,
   ) {}
 
   // Kiểm tra tham chiếu bên ngoài trước rồi thay thế toàn bộ product graph trong một transaction để không lưu dữ liệu dở dang.
@@ -188,6 +191,10 @@ export class SellerProductUpdateService {
         },
       );
 
+      await this.catalogEvents?.publish(
+        productId,
+        CatalogEventPublisherService.topics.upserted,
+      );
       await this.cleanupRemovedMedia(
         currentUser.userId,
         transactionResult.staleMedia,

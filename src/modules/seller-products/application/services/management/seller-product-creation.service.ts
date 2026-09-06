@@ -35,6 +35,8 @@ import type { CreateProductResponse } from "../../types/create-product-response.
 import type { SellerProductUserContext } from "../../types/seller-product-user-context.type";
 import { ProductIdentifierService } from "../identity/product-identifier.service";
 import { SellerProductValidatorService } from "../validation/seller-product-validator.service";
+import { CatalogEventPublisherService } from "../events/catalog-event-publisher.service";
+import { Optional } from "@nestjs/common";
 
 @Injectable()
 export class SellerProductCreationService {
@@ -46,6 +48,7 @@ export class SellerProductCreationService {
     private readonly sellerShopClient: SellerShopClient,
     private readonly identifier: ProductIdentifierService,
     private readonly validator: SellerProductValidatorService,
+    @Optional() private readonly catalogEvents?: CatalogEventPublisherService,
   ) {}
 
   // Xác minh dữ liệu cross-service trước, sau đó ghi toàn bộ product graph trong một transaction PostgreSQL.
@@ -71,7 +74,7 @@ export class SellerProductCreationService {
     );
 
     try {
-      return await this.dataSource.transaction(async (manager) => {
+      const response = await this.dataSource.transaction(async (manager) => {
         const product = await manager.save(
           manager.create(Product, {
             originType: ProductOriginType.INTERNAL,
@@ -97,8 +100,12 @@ export class SellerProductCreationService {
             packageWidthCm: dto.package.widthCm.toFixed(2),
             packageHeightCm: dto.package.heightCm.toFixed(2),
             status: dto.status,
-            minPrice: Math.min(...dto.variants.map((variant) => variant.price)).toFixed(2),
-            maxPrice: Math.max(...dto.variants.map((variant) => variant.price)).toFixed(2),
+            minPrice: Math.min(
+              ...dto.variants.map((variant) => variant.price),
+            ).toFixed(2),
+            maxPrice: Math.max(
+              ...dto.variants.map((variant) => variant.price),
+            ).toFixed(2),
             totalSold: 0,
             ratingAvg: null,
             reviewCount: 0,
@@ -123,8 +130,12 @@ export class SellerProductCreationService {
               altText: image.altText?.trim() || dto.name.trim(),
               sortOrder: image.sortOrder,
               isThumbnail: image.isThumbnail,
-              externalImageId: parseProductMediaReference(image.imageUrl, "product_image")?.assetId ?? null,
-              sourceAssetId: parseProductMediaReference(image.imageUrl, "product_image")?.assetId ?? null,
+              externalImageId:
+                parseProductMediaReference(image.imageUrl, "product_image")
+                  ?.assetId ?? null,
+              sourceAssetId:
+                parseProductMediaReference(image.imageUrl, "product_image")
+                  ?.assetId ?? null,
               aiAssetId: null,
             }),
           ),
@@ -156,6 +167,11 @@ export class SellerProductCreationService {
           createdAt: product.createdAt,
         };
       });
+      await this.catalogEvents?.publish(
+        response.id,
+        CatalogEventPublisherService.topics.upserted,
+      );
+      return response;
     } catch (error) {
       if (this.isUniqueConstraintViolation(error)) {
         throw new ConflictException(
@@ -198,7 +214,10 @@ export class SellerProductCreationService {
       ),
     );
     const savedOptionByClientId = new Map(
-      dto.options.map((option, index) => [option.clientId, savedOptions[index]]),
+      dto.options.map((option, index) => [
+        option.clientId,
+        savedOptions[index],
+      ]),
     );
 
     const valueInputs = dto.options.flatMap((option) =>
@@ -244,7 +263,8 @@ export class SellerProductCreationService {
           productId: product.id,
           sku: this.identifier.createSystemSku(shopId),
           sellerSku: variant.sku?.trim() || null,
-          name: selectedNames.length > 0 ? selectedNames.join(" / ") : product.name,
+          name:
+            selectedNames.length > 0 ? selectedNames.join(" / ") : product.name,
           price: variant.price.toFixed(2),
           originalPrice: variant.originalPrice?.toFixed(2) ?? null,
           gtin: variant.gtin?.trim() || product.gtin,

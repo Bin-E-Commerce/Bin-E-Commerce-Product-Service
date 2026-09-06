@@ -10,17 +10,22 @@ import { ProductOriginType } from "../../../../../database/catalog/enums/product
 import { ProductStatus } from "../../../../../database/catalog/enums/product-status.enum";
 import type { RestoreProductResponse } from "../../types/restore-product-response.type";
 import type { SellerProductUserContext } from "../../types/seller-product-user-context.type";
+import { CatalogEventPublisherService } from "../events/catalog-event-publisher.service";
+import { Optional } from "@nestjs/common";
 
 @Injectable()
 export class SellerProductRestoreService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    @Optional() private readonly catalogEvents?: CatalogEventPublisherService,
+  ) {}
 
   // Khôi phục product thuộc đúng seller về INACTIVE để không tự xuất hiện lại trên storefront.
   async restore(
     currentUser: SellerProductUserContext,
     productId: string,
   ): Promise<RestoreProductResponse> {
-    return this.dataSource.transaction(async (manager) => {
+    const response = await this.dataSource.transaction(async (manager) => {
       const product = await this.loadDeletedProduct(
         manager,
         productId,
@@ -38,6 +43,11 @@ export class SellerProductRestoreService {
         updatedAt: product.updatedAt,
       };
     });
+    await this.catalogEvents?.publish(
+      productId,
+      CatalogEventPublisherService.topics.statusChanged,
+    );
+    return response;
   }
 
   // Khóa bản ghi để tránh restore đồng thời và phân biệt product không tồn tại với product chưa bị xóa.
@@ -56,7 +66,9 @@ export class SellerProductRestoreService {
     });
 
     if (!product) {
-      throw new NotFoundException("Không tìm thấy sản phẩm trong shop của bạn.");
+      throw new NotFoundException(
+        "Không tìm thấy sản phẩm trong shop của bạn.",
+      );
     }
 
     if (product.status !== ProductStatus.DELETED) {

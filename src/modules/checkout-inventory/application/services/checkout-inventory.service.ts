@@ -6,6 +6,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { DataSource, In } from "typeorm";
@@ -24,15 +25,19 @@ import type {
   CheckoutReservationResponse,
   CheckoutSnapshotItem,
 } from "../types/checkout-response.type";
+import { CatalogEventPublisherService } from "../../../seller-products/application/services/events/catalog-event-publisher.service";
 
 // Giữ hoặc trả inventory atomically; Product Service không mở transaction xuyên database với Order.
 @Injectable()
 export class CheckoutInventoryService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    @Optional() private readonly catalogEvents?: CatalogEventPublisherService,
+  ) {}
 
   // Revalidate tất cả dòng, lock inventory, giảm available và trả snapshot authoritative trong một transaction.
   async reserve(dto: ReserveCheckoutDto): Promise<CheckoutReservationResponse> {
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       // Advisory lock tuần tự hóa request đầu tiên cùng key trước khi insert unique reservation.
       await manager.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
         dto.reservationKey,
@@ -48,7 +53,10 @@ export class CheckoutInventoryService {
         );
       }
       if (existing)
-        return existing.response as unknown as CheckoutReservationResponse;
+        return {
+          response: existing.response as unknown as CheckoutReservationResponse,
+          variantIds: [],
+        };
 
       const variantIds = [
         ...new Set(dto.items.map((item) => item.variantId)),
@@ -102,7 +110,9 @@ export class CheckoutInventoryService {
           variant.product.packageWidthCm,
           variant.product.packageHeightCm,
         ];
-        if (!packageValues.every((value) => value !== null && Number(value) > 0)) {
+        if (
+          !packageValues.every((value) => value !== null && Number(value) > 0)
+        ) {
           throw new UnprocessableEntityException(
             "Sản phẩm chưa đủ thông tin đóng gói để tính phí giao hàng.",
           );
@@ -151,31 +161,57 @@ export class CheckoutInventoryService {
           releasedAt: null,
         }),
       );
-      return response;
+      return {
+        response,
+        variantIds: dto.items.map((item) => item.variantId),
+      };
     });
+    await this.publishAvailability(result.variantIds);
+    return result.response;
   }
 
   // Đọc snapshot authoritative cho quote mà không giữ hoặc thay đổi tồn kho.
   async quote(dto: ReserveCheckoutDto): Promise<CheckoutReservationResponse> {
     return this.dataSource.transaction(async (manager) => {
-      const variantIds = [...new Set(dto.items.map((item) => item.variantId))].sort();
+      const variantIds = [
+        ...new Set(dto.items.map((item) => item.variantId)),
+      ].sort();
       const variants = await manager.getRepository(ProductVariant).find({
         where: { id: In(variantIds) },
         relations: { product: { images: true }, inventory: true },
       });
-      const variantById = new Map(variants.map((variant) => [variant.id, variant]));
+      const variantById = new Map(
+        variants.map((variant) => [variant.id, variant]),
+      );
       const snapshots: CheckoutSnapshotItem[] = [];
       for (const item of dto.items) {
         const variant = variantById.get(item.variantId);
         if (!variant || variant.productId !== item.productId) {
-          throw new NotFoundException("Không tìm thấy variant thuộc sản phẩm đã chọn.");
+          throw new NotFoundException(
+            "Không tìm thấy variant thuộc sản phẩm đã chọn.",
+          );
         }
-        if (variant.product.status !== ProductStatus.ACTIVE || variant.product.originType !== ProductOriginType.INTERNAL || variant.status !== ProductVariantStatus.ACTIVE) {
-          throw new UnprocessableEntityException("Sản phẩm không còn được bán trên hệ thống.");
+        if (
+          variant.product.status !== ProductStatus.ACTIVE ||
+          variant.product.originType !== ProductOriginType.INTERNAL ||
+          variant.status !== ProductVariantStatus.ACTIVE
+        ) {
+          throw new UnprocessableEntityException(
+            "Sản phẩm không còn được bán trên hệ thống.",
+          );
         }
-        const packageValues = [variant.product.packageWeightGrams, variant.product.packageLengthCm, variant.product.packageWidthCm, variant.product.packageHeightCm];
-        if (!packageValues.every((value) => value !== null && Number(value) > 0)) {
-          throw new UnprocessableEntityException("Sản phẩm chưa đủ thông tin đóng gói để tính phí giao hàng.");
+        const packageValues = [
+          variant.product.packageWeightGrams,
+          variant.product.packageLengthCm,
+          variant.product.packageWidthCm,
+          variant.product.packageHeightCm,
+        ];
+        if (
+          !packageValues.every((value) => value !== null && Number(value) > 0)
+        ) {
+          throw new UnprocessableEntityException(
+            "Sản phẩm chưa đủ thông tin đóng gói để tính phí giao hàng.",
+          );
         }
         snapshots.push({
           productId: variant.productId,
@@ -201,6 +237,7 @@ export class CheckoutInventoryService {
 
   // Trả lại lượng reserved khi Order Service không thể commit order sau bước reserve.
   async release(dto: ReleaseCheckoutDto): Promise<{ released: boolean }> {
+    let releasedVariantIds: string[] = [];
     await this.dataSource.transaction(async (manager) => {
       await manager.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
         dto.reservationKey,
@@ -252,14 +289,18 @@ export class CheckoutInventoryService {
         }
         inventory.quantityReserved -= item.quantity;
         inventory.quantityAvailable += item.quantity;
-        inventory.quantitySold = Math.max(inventory.quantitySold - item.quantity, 0);
+        inventory.quantitySold = Math.max(
+          inventory.quantitySold - item.quantity,
+          0,
+        );
         await manager.getRepository(Inventory).save(inventory);
       }
+      releasedVariantIds = releaseItems.map((item) => item.variantId);
       const releasedReservation =
         reservation ??
         reservationRepository.create({
           reservationKey: dto.reservationKey,
-            status: CheckoutReservationStatus.RELEASED,
+          status: CheckoutReservationStatus.RELEASED,
           response: { reservationKey: dto.reservationKey, items: releaseItems },
           releasedAt: new Date(),
         });
@@ -269,7 +310,17 @@ export class CheckoutInventoryService {
       }
       await reservationRepository.save(releasedReservation);
     });
+    await this.publishAvailability(releasedVariantIds);
     return { released: true };
+  }
+
+  // Publish availability sau khi transaction đã commit; lỗi Kafka không rollback tồn kho authoritative.
+  private async publishAvailability(variantIds: string[]): Promise<void> {
+    try {
+      await this.catalogEvents?.publishForVariants(variantIds);
+    } catch {
+      // Catalog consumer có thể tự đồng bộ lại bằng bootstrap; checkout không phụ thuộc vào event best-effort.
+    }
   }
 
   // Nhân giá decimal hai chữ số bằng số nguyên để snapshot lineTotal không bị sai số.
@@ -295,8 +346,10 @@ export class CheckoutInventoryService {
     const thumbnail = productImages.find((image) => image.isThumbnail);
     if (thumbnail) return thumbnail.imageUrl;
 
-    return [...productImages].sort(
-      (left, right) => left.sortOrder - right.sortOrder,
-    )[0]?.imageUrl ?? null;
+    return (
+      [...productImages].sort(
+        (left, right) => left.sortOrder - right.sortOrder,
+      )[0]?.imageUrl ?? null
+    );
   }
 }

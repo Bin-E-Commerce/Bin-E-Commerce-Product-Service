@@ -13,6 +13,8 @@ import { ProductStatus } from "../../../../../database/catalog/enums/product-sta
 import { SellerShopClient } from "../../clients/seller-shop.client";
 import type { SellerProductUserContext } from "../../types/seller-product-user-context.type";
 import type { ChangeProductStatusResponse } from "../../types/change-product-status-response.type";
+import { CatalogEventPublisherService } from "../events/catalog-event-publisher.service";
+import { Optional } from "@nestjs/common";
 
 type SellerProductPublicationStatus =
   | ProductStatus.ACTIVE
@@ -23,6 +25,7 @@ export class SellerProductStatusService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly sellerShopClient: SellerShopClient,
+    @Optional() private readonly catalogEvents?: CatalogEventPublisherService,
   ) {}
 
   // Đổi trạng thái vận hành trong transaction, khóa đúng product theo owner để tránh cập nhật nhầm shop hoặc ghi đè đồng thời.
@@ -37,7 +40,7 @@ export class SellerProductStatusService {
       targetStatus,
     );
 
-    return this.dataSource.transaction(async (manager) => {
+    const response = await this.dataSource.transaction(async (manager) => {
       const product = await this.loadProductForStatusChange(
         manager,
         productId,
@@ -55,6 +58,11 @@ export class SellerProductStatusService {
       await manager.save(Product, product);
       return this.toResponse(product, targetStatus);
     });
+    await this.catalogEvents?.publish(
+      productId,
+      CatalogEventPublisherService.topics.statusChanged,
+    );
+    return response;
   }
 
   // Kiểm tra mạng trước transaction để không giữ khóa database trong thời gian gọi Seller Service.
@@ -74,7 +82,9 @@ export class SellerProductStatusService {
     });
 
     if (!product || product.status === ProductStatus.DELETED) {
-      throw new NotFoundException("Không tìm thấy sản phẩm trong shop của bạn.");
+      throw new NotFoundException(
+        "Không tìm thấy sản phẩm trong shop của bạn.",
+      );
     }
 
     // PATCH ACTIVE lặp lại không cần gọi service ngoài và vẫn giữ tính idempotent.
@@ -106,7 +116,9 @@ export class SellerProductStatusService {
     });
 
     if (!product || product.status === ProductStatus.DELETED) {
-      throw new NotFoundException("Không tìm thấy sản phẩm trong shop của bạn.");
+      throw new NotFoundException(
+        "Không tìm thấy sản phẩm trong shop của bạn.",
+      );
     }
 
     return product;

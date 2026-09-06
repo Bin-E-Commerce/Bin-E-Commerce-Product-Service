@@ -43,6 +43,7 @@ import { OrderReviewClient } from "./reviews/application/clients/order-review.cl
 import { ReviewerProfileClient } from "./reviews/application/clients/reviewer-profile.client";
 import { ReviewMediaClient } from "./reviews/application/clients/review-media.client";
 import { OrderSalesClient } from "./seller-products/application/clients/order-sales.client";
+import { CatalogEventPublisherService } from "./seller-products/application/services/events/catalog-event-publisher.service";
 
 @Module({
   imports: [

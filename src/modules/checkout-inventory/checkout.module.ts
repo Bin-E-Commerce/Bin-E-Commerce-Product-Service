@@ -6,12 +6,21 @@ import { CheckoutInventoryService } from "./application/services/checkout-invent
 import { InternalServiceGuard } from "./presentation/guards/internal-service.guard";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { CheckoutReservation } from "../../database/checkout/entities/checkout-reservation.entity";
+import { Product } from "../../database/catalog/entities/product.entity";
+import { ProductVariant } from "../../database/catalog/entities/product-variant.entity";
+import { CatalogEventPublisherService } from "../seller-products/application/services/events/catalog-event-publisher.service";
 
 // ProductModule import module này để expose internal endpoint cùng database transaction hiện tại.
 @Module({
-  imports: [TypeOrmModule.forFeature([CheckoutReservation])],
+  imports: [
+    TypeOrmModule.forFeature([CheckoutReservation, Product, ProductVariant]),
+  ],
   controllers: [CheckoutInventoryController],
-  providers: [CheckoutInventoryService, InternalServiceGuard],
-  exports: [InternalServiceGuard],
+  providers: [
+    CheckoutInventoryService,
+    InternalServiceGuard,
+    CatalogEventPublisherService,
+  ],
+  exports: [InternalServiceGuard, CatalogEventPublisherService],
 })
 export class CheckoutModule {}
