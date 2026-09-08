@@ -133,6 +133,7 @@ export class CheckoutInventoryService {
         snapshots.push({
           productId: variant.productId,
           variantId: variant.id,
+          categoryId: variant.product.categoryId,
           sellerShopId: variant.product.sellerShopId,
           sellerOwnerId: variant.product.sellerOwnerId,
           sku: variant.sku,
@@ -216,6 +217,7 @@ export class CheckoutInventoryService {
         snapshots.push({
           productId: variant.productId,
           variantId: variant.id,
+          categoryId: variant.product.categoryId,
           sellerShopId: variant.product.sellerShopId,
           sellerOwnerId: variant.product.sellerOwnerId,
           sku: variant.sku,

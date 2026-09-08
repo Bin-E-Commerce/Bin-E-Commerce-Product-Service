@@ -174,6 +174,10 @@ export class Product {
   @Column({ name: "total_sold", type: "int", default: 0 })
   totalSold: number;
 
+  // Revision tăng đơn điệu cho mọi snapshot catalog, kể cả availability, để consumer xử lý event đến lệch thứ tự an toàn.
+  @Column({ name: "catalog_revision", type: "bigint", default: 1 })
+  catalogRevision: string;
+
   // Điểm đánh giá trung bình của sản phẩm.
   @Column({ name: "rating_avg", type: "numeric", precision: 4, scale: 2, nullable: true })
   ratingAvg: string | null;

@@ -9,6 +9,7 @@ export interface CheckoutReservationResponse {
 export interface CheckoutSnapshotItem {
   productId: string;
   variantId: string;
+  categoryId: string | null;
   sellerShopId: string | null;
   sellerOwnerId: string | null;
   sku: string;

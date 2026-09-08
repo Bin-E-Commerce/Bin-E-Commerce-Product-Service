@@ -9,11 +9,12 @@ import { CheckoutReservation } from "../../database/checkout/entities/checkout-r
 import { Product } from "../../database/catalog/entities/product.entity";
 import { ProductVariant } from "../../database/catalog/entities/product-variant.entity";
 import { CatalogEventPublisherService } from "../seller-products/application/services/events/catalog-event-publisher.service";
+import { CatalogEventOutboxEntity } from "../../database/integration/entities/catalog-event-outbox.entity";
 
 // ProductModule import module này để expose internal endpoint cùng database transaction hiện tại.
 @Module({
   imports: [
-    TypeOrmModule.forFeature([CheckoutReservation, Product, ProductVariant]),
+    TypeOrmModule.forFeature([CheckoutReservation, Product, ProductVariant, CatalogEventOutboxEntity]),
   ],
   controllers: [CheckoutInventoryController],
   providers: [
