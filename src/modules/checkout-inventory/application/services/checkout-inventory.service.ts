@@ -55,7 +55,6 @@ export class CheckoutInventoryService {
       if (existing)
         return {
           response: existing.response as unknown as CheckoutReservationResponse,
-          variantIds: [],
         };
 
       const variantIds = [
@@ -162,12 +161,11 @@ export class CheckoutInventoryService {
           releasedAt: null,
         }),
       );
+      await this.catalogEvents?.publishForVariants(variantIds, manager);
       return {
         response,
-        variantIds: dto.items.map((item) => item.variantId),
       };
     });
-    await this.publishAvailability(result.variantIds);
     return result.response;
   }
 
@@ -311,18 +309,9 @@ export class CheckoutInventoryService {
         reservation.releasedAt = new Date();
       }
       await reservationRepository.save(releasedReservation);
+      await this.catalogEvents?.publishForVariants(releasedVariantIds, manager);
     });
-    await this.publishAvailability(releasedVariantIds);
     return { released: true };
-  }
-
-  // Publish availability sau khi transaction đã commit; lỗi Kafka không rollback tồn kho authoritative.
-  private async publishAvailability(variantIds: string[]): Promise<void> {
-    try {
-      await this.catalogEvents?.publishForVariants(variantIds);
-    } catch {
-      // Catalog consumer có thể tự đồng bộ lại bằng bootstrap; checkout không phụ thuộc vào event best-effort.
-    }
   }
 
   // Nhân giá decimal hai chữ số bằng số nguyên để snapshot lineTotal không bị sai số.

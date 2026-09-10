@@ -56,12 +56,13 @@ export class SellerProductStatusService {
 
       product.status = targetStatus;
       await manager.save(Product, product);
+      await this.catalogEvents?.publish(
+        product.id,
+        CatalogEventPublisherService.topics.statusChanged,
+        manager,
+      );
       return this.toResponse(product, targetStatus);
     });
-    await this.catalogEvents?.publish(
-      productId,
-      CatalogEventPublisherService.topics.statusChanged,
-    );
     return response;
   }
 

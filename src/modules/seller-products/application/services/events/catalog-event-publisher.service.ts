@@ -3,7 +3,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import { InjectRepository } from "@nestjs/typeorm";
-import { In, Repository } from "typeorm";
+import { EntityManager, In, Repository } from "typeorm";
 import { RecommendationCatalogEvents } from "@common/kafka/events/recommendation.events";
 import type {
   RecommendationCatalogEvent,
@@ -42,10 +42,13 @@ export class CatalogEventPublisherService implements OnModuleInit, OnModuleDestr
     if (this.retryTimer) clearInterval(this.retryTimer);
   }
 
-  // Phát lại snapshot theo variant vừa đổi tồn kho để Recommendation cập nhật availability sau commit inventory.
-  async publishForVariants(variantIds: string[]): Promise<void> {
+  // Ghi availability outbox trong cùng transaction inventory khi có manager; dispatcher sẽ gửi sau commit.
+  async publishForVariants(
+    variantIds: string[],
+    manager?: EntityManager,
+  ): Promise<void> {
     if (variantIds.length === 0) return;
-    const variants = await this.variantRepository.find({
+    const variants = await (manager?.getRepository(ProductVariant) ?? this.variantRepository).find({
       where: { id: In([...new Set(variantIds)]) },
       select: { id: true, productId: true },
     });
@@ -55,39 +58,57 @@ export class CatalogEventPublisherService implements OnModuleInit, OnModuleDestr
       await this.publish(
         productId,
         RecommendationCatalogEvents.AVAILABILITY_CHANGED,
+        manager,
       );
     }
   }
 
-  // Đọc snapshot public sau commit rồi phát event versioned; Kafka lỗi chỉ được log vì Product DB vẫn là nguồn sự thật.
+  // Ghi revision và outbox cùng transaction nguồn để process crash không làm mất catalog event.
   async publish(
     productId: string,
     eventName: RecommendationCatalogEventType,
+    manager?: EntityManager,
   ): Promise<void> {
-    // Availability cũng phải có revision riêng; increment trước snapshot giúp eventId không phụ thuộc timestamp.
-    const event = await this.productRepository.manager.transaction(async (manager) => {
-      const rows = await manager.query(
+    const createEvent = async (transactionManager: EntityManager) => {
+      // Availability cũng phải có revision riêng; increment trước snapshot giúp eventId không phụ thuộc timestamp.
+      const rows = await transactionManager.query(
         `UPDATE products SET catalog_revision = catalog_revision + 1 WHERE id = $1 RETURNING catalog_revision`,
         [productId],
       ) as Array<{ catalog_revision: string | number }>;
       if (rows.length === 0) return null;
-      const product = await manager.getRepository(Product).findOne({
+      const product = await transactionManager.getRepository(Product).findOne({
         where: { id: productId },
         relations: { images: true, variants: { inventory: true }, brand: true, attributeValues: true },
       });
       if (!product) return null;
       const event = this.toEvent(product, eventName);
-      await manager.getRepository(CatalogEventOutboxEntity).upsert({
-        eventId: event.eventId,
-        topic: event.eventName,
-        aggregateId: event.aggregateId,
-        payload: event,
-        status: "PENDING",
-        availableAt: new Date(),
-        updatedAt: new Date(),
-      }, ["eventId"]);
+      await transactionManager
+        .getRepository(CatalogEventOutboxEntity)
+        .createQueryBuilder()
+        .insert()
+        .into(CatalogEventOutboxEntity)
+        .values({
+          eventId: event.eventId,
+          topic: event.eventName,
+          aggregateId: event.aggregateId,
+          payload: event,
+          status: "PENDING",
+          availableAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .orIgnore()
+        .execute();
       return event;
-    });
+    };
+
+    // Các use case truyền transaction manager để revision, product thay đổi và outbox commit atomically.
+    if (manager) {
+      await createEvent(manager);
+      return;
+    }
+
+    // Giữ compatibility cho caller cũ; đường này vẫn đảm bảo outbox được tạo trước khi dispatch.
+    const event = await this.productRepository.manager.transaction(createEvent);
     if (!event) return;
     await this.outboxRepository.update({ eventId: event.eventId, status: "PENDING" }, { status: "PROCESSING", updatedAt: new Date() });
     await this.dispatchEvent(event);

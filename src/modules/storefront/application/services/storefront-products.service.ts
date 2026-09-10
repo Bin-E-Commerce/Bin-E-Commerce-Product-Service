@@ -212,6 +212,9 @@ export class StorefrontProductsService {
   async getStorefrontProductById(id: string, userId?: string): Promise<StorefrontProduct> {
     const product = await this.productRepository.findOne({
       where: { id, status: ProductStatus.ACTIVE },
+      // Tách query cho các quan hệ 1-n để tránh tích Descartes giữa variants, options và reviews.
+      // Response vẫn giữ nguyên nhưng database chỉ trả từng tập quan hệ độc lập, phù hợp với product có nhiều tập/variant.
+      relationLoadStrategy: "query",
       relations: {
         brand: true,
         externalShop: true,
@@ -232,10 +235,6 @@ export class StorefrontProductsService {
           variant: true,
         },
       },
-      order: {
-        images: { sortOrder: "ASC" },
-        options: { position: "ASC", values: { position: "ASC" } },
-      },
     });
 
     if (!product) {
@@ -243,16 +242,23 @@ export class StorefrontProductsService {
     }
 
     // Public response chỉ chứa review approved; likeCount được tổng hợp riêng để không serialize userId của bảng like.
+    // Query strategy khong ap order nested an toan tren TypeORM/PostgreSQL; sort sau khi hydrate.
+    // Cach nay giu response nguyen ven ma khong tao join phinh lon voi quan he 1-n.
+    this.sortProductDetailRelations(product);
+
     const publicReviews = product.reviews.filter(
       (review) => review.status.toLowerCase() === "approved",
     );
-    const reviewerProfiles = await this.reviewerProfileClient.getPublicProfiles(
-      publicReviews.filter((review) => !review.isAnonymous).map((review) => review.userId ?? ""),
-    );
     const reviewIds = publicReviews.map((review) => review.id);
-    const likes = reviewIds.length
-      ? await this.reviewLikeRepository.find({ where: { reviewId: In(reviewIds) } })
-      : [];
+    // Profile reviewer và like độc lập nhau; chạy song song để không cộng dồn latency của hai service/query phụ trợ.
+    const [reviewerProfiles, likes] = await Promise.all([
+      this.reviewerProfileClient.getPublicProfiles(
+        publicReviews.filter((review) => !review.isAnonymous).map((review) => review.userId ?? ""),
+      ),
+      reviewIds.length
+        ? this.reviewLikeRepository.find({ where: { reviewId: In(reviewIds) } })
+        : Promise.resolve([]),
+    ]);
     const likeCountByReview = new Map<string, number>();
     const likedReviewIds = new Set<string>();
     likes.forEach((like) => {
@@ -522,6 +528,22 @@ export class StorefrontProductsService {
   }
 
   // So sánh giá numeric của PostgreSQL an toàn hơn so sánh chuỗi và xử lý deterministic khi hai giá bằng nhau.
+  // Giu thu tu hien thi cua cac quan he detail sau khi TypeORM tai bang query rieng.
+  // Tie-break theo ID giup SSR, cache va client nhan cung thu tu khi position trung nhau.
+  private sortProductDetailRelations(product: Product): void {
+    product.images = [...(product.images ?? [])].sort((left, right) =>
+      left.sortOrder - right.sortOrder || left.id.localeCompare(right.id),
+    );
+    product.options = [...(product.options ?? [])].sort(
+      (left, right) => left.position - right.position || left.id.localeCompare(right.id),
+    );
+    product.options.forEach((option) => {
+      option.values = [...(option.values ?? [])].sort(
+        (left, right) => left.position - right.position || left.id.localeCompare(right.id),
+      );
+    });
+  }
+
   private isCheaperVariant(candidate: ProductVariant, current: ProductVariant): boolean {
     const candidatePrice = Number(candidate.price);
     const currentPrice = Number(current.price);

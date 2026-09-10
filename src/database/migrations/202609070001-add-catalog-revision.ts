@@ -1,8 +1,8 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 // Bổ sung revision catalog dùng làm ordering/idempotency key cho Recommendation read model.
-export class AddCatalogRevision202609070001 implements MigrationInterface {
-  name = "AddCatalogRevision202609070001";
+export class AddCatalogRevision1788739200001 implements MigrationInterface {
+  name = "AddCatalogRevision1788739200001";
 
   // Backfill revision theo timestamp row hiện có, sau đó dùng sequence-like increment trên từng product.
   async up(queryRunner: QueryRunner): Promise<void> {

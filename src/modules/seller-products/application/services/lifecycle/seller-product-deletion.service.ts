@@ -44,6 +44,11 @@ export class SellerProductDeletionService {
       product.deletedAt = new Date();
       product.deletedBy = currentUser.userId;
       await manager.save(Product, product);
+      await this.catalogEvents?.publish(
+        product.id,
+        CatalogEventPublisherService.topics.deleted,
+        manager,
+      );
 
       return {
         id: product.id,
@@ -51,10 +56,6 @@ export class SellerProductDeletionService {
         updatedAt: product.updatedAt,
       };
     });
-    await this.catalogEvents?.publish(
-      productId,
-      CatalogEventPublisherService.topics.deleted,
-    );
     return response;
   }
 

@@ -1,8 +1,8 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 // Tạo durable outbox cho catalog event để Product commit không phụ thuộc trạng thái tức thời của Kafka.
-export class CreateCatalogEventOutbox202609070002 implements MigrationInterface {
-  name = "CreateCatalogEventOutbox202609070002";
+export class CreateCatalogEventOutbox1788739200002 implements MigrationInterface {
+  name = "CreateCatalogEventOutbox1788739200002";
 
   // Event được ghi cùng transaction với catalog revision, sau đó dispatcher gửi lại đến khi broker xác nhận.
   async up(queryRunner: QueryRunner): Promise<void> {

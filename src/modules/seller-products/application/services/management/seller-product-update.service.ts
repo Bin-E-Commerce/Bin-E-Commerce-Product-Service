@@ -179,6 +179,12 @@ export class SellerProductUpdateService {
             staleMediaCandidates,
           );
 
+          await this.catalogEvents?.publish(
+            product.id,
+            CatalogEventPublisherService.topics.upserted,
+            manager,
+          );
+
           return {
             response: {
               id: product.id,
@@ -191,10 +197,6 @@ export class SellerProductUpdateService {
         },
       );
 
-      await this.catalogEvents?.publish(
-        productId,
-        CatalogEventPublisherService.topics.upserted,
-      );
       await this.cleanupRemovedMedia(
         currentUser.userId,
         transactionResult.staleMedia,

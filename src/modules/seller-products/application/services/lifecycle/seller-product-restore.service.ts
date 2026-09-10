@@ -36,6 +36,11 @@ export class SellerProductRestoreService {
       product.deletedAt = null;
       product.deletedBy = null;
       await manager.save(Product, product);
+      await this.catalogEvents?.publish(
+        product.id,
+        CatalogEventPublisherService.topics.statusChanged,
+        manager,
+      );
 
       return {
         id: product.id,
@@ -43,10 +48,6 @@ export class SellerProductRestoreService {
         updatedAt: product.updatedAt,
       };
     });
-    await this.catalogEvents?.publish(
-      productId,
-      CatalogEventPublisherService.topics.statusChanged,
-    );
     return response;
   }
 

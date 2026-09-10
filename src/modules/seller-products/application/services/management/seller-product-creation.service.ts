@@ -160,6 +160,12 @@ export class SellerProductCreationService {
           catalogContext.attributes,
         );
 
+        await this.catalogEvents?.publish(
+          product.id,
+          CatalogEventPublisherService.topics.upserted,
+          manager,
+        );
+
         return {
           id: product.id,
           slug: product.slug,
@@ -167,10 +173,6 @@ export class SellerProductCreationService {
           createdAt: product.createdAt,
         };
       });
-      await this.catalogEvents?.publish(
-        response.id,
-        CatalogEventPublisherService.topics.upserted,
-      );
       return response;
     } catch (error) {
       if (this.isUniqueConstraintViolation(error)) {
