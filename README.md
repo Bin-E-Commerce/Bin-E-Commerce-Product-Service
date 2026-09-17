@@ -68,7 +68,7 @@ Product Service is the boundary for product aggregates and the operations that d
 | ORM | TypeORM |
 | Event integration | Kafka producer and catalog event outbox |
 | Security middleware | Helmet |
-| Health endpoint | GET /api/health |
+| Health endpoint | GET /api/v1/health |
 | API documentation | GET /docs outside production |
 | Database schema policy | Migrations only; synchronize is disabled |
 
@@ -181,7 +181,7 @@ npm run dev
 ### Check health
 
 ~~~powershell
-curl http://localhost:3008/api/health
+curl http://localhost:3008/api/v1/health
 ~~~
 
 Expected shape:

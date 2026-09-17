@@ -1,0 +1,30 @@
+# Dockerfile dùng context root repository, mặc định loại toàn bộ context.
+*
+
+# Chỉ giữ manifest, cấu hình compiler và source cần cho Product Service.
+!tsconfig.base.json
+!packages/
+!packages/common/
+!packages/common/**
+!services/
+!services/product-service/
+!services/product-service/package.json
+!services/product-service/package-lock.json
+!services/product-service/tsconfig.json
+!services/product-service/tsconfig.build.json
+!services/product-service/nest-cli.json
+!services/product-service/src/
+!services/product-service/src/**
+
+# Không gửi dependency, artifact, secret và file phát triển vào build context.
+**/node_modules
+**/dist
+**/coverage
+**/*.spec.ts
+**/*.e2e-spec.ts
+**/.env
+**/.env.*
+**/.git
+**/.gitignore
+**/.vscode
+**/*.log
