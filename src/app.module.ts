@@ -29,7 +29,7 @@ import { KafkaModule } from "./kafka/kafka.module";
         // Không chạy synchronize kể cả ở local; migration là nguồn schema duy nhất của Product Service.
         synchronize: false,
         ssl:
-          config.get<string>("NODE_ENV") === "production"
+          config.get<string>("POSTGRES_SSL", "false") === "true"
             ? { rejectUnauthorized: false }
             : false,
         logging: config.get<string>("TYPEORM_LOGGING", "false") === "true",
