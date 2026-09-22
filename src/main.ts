@@ -1,3 +1,6 @@
+// File này khởi động Product Service, cấu hình validation/API boundary và telemetry.
+// File không chứa nghiệp vụ product; các feature module giữ contract và persistence rule.
+
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe, VersioningType } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -5,8 +8,10 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { buildHelmetOptions } from "./common/config/helmet.config";
+import { setupHttpObservability } from "../../../packages/common/observability/http-observability";
 
 // Khởi động Product Service, nơi quản lý product, variant, ảnh và shop nguồn crawl.
+// Khởi động product boundary và đăng ký validation, security cùng telemetry.
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
     logger: ["error", "warn", "log"],
@@ -20,6 +25,8 @@ async function bootstrap(): Promise<void> {
 
   app.use(helmet(buildHelmetOptions(isDev)));
   app.setGlobalPrefix("api");
+  // Đăng ký metrics RED và request ID trước khi service bắt đầu nhận traffic.
+  setupHttpObservability(app, "product-service");
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: "1" });
   app.useGlobalPipes(
     new ValidationPipe({
