@@ -18,7 +18,10 @@ COPY services/product-service/tsconfig.json services/product-service/tsconfig.bu
 # Cài đúng dependency theo lockfile riêng của Product; devDependency cần cho Nest CLI
 # chỉ tồn tại ở builder và sẽ được loại khỏi runtime image.
 WORKDIR /app/services/product-service
-RUN npm ci --include=dev --ignore-scripts
+# Builder luôn giữ devDependency vì Nest CLI chỉ phục vụ compile.
+ENV NODE_ENV=development
+RUN npm ci --include=dev --bin-links=true --ignore-scripts \
+  && test -x node_modules/.bin/nest
 
 # Chỉ copy source Product, không dùng COPY . . để tránh kéo artifact/service khác.
 COPY services/product-service/src ./src
