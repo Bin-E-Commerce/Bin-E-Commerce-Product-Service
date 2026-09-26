@@ -18,6 +18,8 @@ import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
 import { InternalServiceGuard } from '@/modules/checkout-inventory/presentation/guards/internal-service.guard';
+import { InternalSellerDashboardProductService } from '@/modules/internal/application/services/internal-seller-dashboard-product.service';
+import type { InternalSellerDashboardProductSnapshot } from '@/modules/internal/application/types/internal-seller-dashboard-product.type';
 
 // Internal endpoint chỉ trả số liệu tối thiểu, không trả dữ liệu sản phẩm hoặc thông tin của shop khác.
 @Controller('internal/products')
@@ -26,6 +28,7 @@ export class InternalProductController {
     constructor(
         @InjectRepository(Product)
         private readonly productRepository: Repository<Product>,
+        private readonly sellerDashboardProductService: InternalSellerDashboardProductService,
     ) {}
 
     // Seller Service dùng số lượng này để bảo vệ địa chỉ mặc định đang phục vụ sản phẩm ACTIVE.
@@ -42,6 +45,14 @@ export class InternalProductController {
         });
 
         return { shopId, activeProductCount };
+    }
+
+    // Nhận shopId đã được internal guard xác thực rồi chuyển việc tổng hợp read model cho application service.
+    @Get('shops/:shopId/dashboard')
+    async getSellerDashboard(
+        @Param('shopId', new ParseUUIDPipe()) shopId: string,
+    ): Promise<InternalSellerDashboardProductSnapshot> {
+        return this.sellerDashboardProductService.getSnapshot(shopId);
     }
 
     // Cart chỉ cần trạng thái, variant, giá, tồn kho và ảnh dự phòng trước khi ghi item.

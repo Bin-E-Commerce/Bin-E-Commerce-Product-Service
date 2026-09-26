@@ -19,6 +19,7 @@ import { BrandsController } from '@/modules/brands/presentation/controllers/bran
 import { BrandsService } from '@/modules/brands/application/services/brands.service';
 import { SellerProductsController } from '@/modules/seller-products/presentation/controllers/seller-products.controller';
 import { InternalProductController } from '@/modules/internal/presentation/controllers/internal-product.controller';
+import { InternalSellerDashboardProductService } from '@/modules/internal/application/services/internal-seller-dashboard-product.service';
 import { CatalogClient } from '@/modules/seller-products/application/clients/catalog.client';
 import { SellerShopClient } from '@/modules/seller-products/application/clients/seller-shop.client';
 import { ProductMediaClient } from '@/modules/seller-products/application/clients/product-media.client';
@@ -43,7 +44,6 @@ import { OrderReviewClient } from '@/modules/reviews/application/clients/order-r
 import { ReviewerProfileClient } from '@/modules/reviews/application/clients/reviewer-profile.client';
 import { ReviewMediaClient } from '@/modules/reviews/application/clients/review-media.client';
 import { OrderSalesClient } from '@/modules/seller-products/application/clients/order-sales.client';
-import { CatalogEventPublisherService } from '@/modules/seller-products/application/services/events/catalog-event-publisher.service';
 
 @Module({
     imports: [
@@ -93,6 +93,7 @@ import { CatalogEventPublisherService } from '@/modules/seller-products/applicat
         ReviewerProfileClient,
         ReviewMediaClient,
         OrderSalesClient,
+        InternalSellerDashboardProductService,
     ],
     exports: [StorefrontProductsService, SellerProductsService],
 })
