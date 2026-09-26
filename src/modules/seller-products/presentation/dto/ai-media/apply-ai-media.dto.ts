@@ -1,41 +1,49 @@
 // DTO noi bo cho phep apply output AI theo asset nguon, khong thay the toan bo gallery san pham.
 
-import { IsArray, IsISO8601, IsOptional, IsString, IsUUID, MaxLength, ValidateNested } from "class-validator";
-import { Type } from "class-transformer";
+import {
+    IsArray,
+    IsISO8601,
+    IsOptional,
+    IsString,
+    IsUUID,
+    MaxLength,
+    ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
 //  Payload noi bo de Product Service apply output sau khi seller da duyet preview.
 export class ApplyAiMediaItemDto {
-  //  Asset ID do Media Service cap, khong phai URL tu user tu nhap.
-  @IsUUID()
-  assetId: string;
+    //  Asset ID do Media Service cap, khong phai URL tu user tu nhap.
+    @IsUUID()
+    assetId: string;
 
-  //  Asset ID goc de Product Service thay dung anh duoc toi uu va giu cac anh con lai.
-  @IsUUID()
-  sourceAssetId: string;
+    //  Asset ID goc de Product Service thay dung anh duoc toi uu va giu cac anh con lai.
+    @IsUUID()
+    sourceAssetId: string;
 
-  //  CDN URL da duoc Media Service xac nhan va cap lai cho product.
-  @IsString()
-  @MaxLength(2000)
-  imageUrl: string;
+    //  CDN URL da duoc Media Service xac nhan va cap lai cho product.
+    @IsString()
+    @MaxLength(2000)
+    imageUrl: string;
 
-  //  Thu tu va co phai anh dai dien hay khong.
-  @IsOptional()
-  sortOrder?: number;
+    //  Thu tu va co phai anh dai dien hay khong.
+    @IsOptional()
+    sortOrder?: number;
 }
 
 //  Request apply co optimistic concurrency de tranh ghi de cap nhat moi cua seller.
 export class ApplyAiMediaDto {
-  //  Job AI lam can cu audit va idempotency.
-  @IsUUID()
-  jobId: string;
+    //  Job AI lam can cu audit va idempotency.
+    @IsUUID()
+    jobId: string;
 
-  //  Version product luc seller xem preview.
-  @IsISO8601()
-  expectedProductUpdatedAt: string;
+    //  Version product luc seller xem preview.
+    @IsISO8601()
+    expectedProductUpdatedAt: string;
 
-  //  Danh sach output da chon de hien thi.
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ApplyAiMediaItemDto)
-  images: ApplyAiMediaItemDto[];
+    //  Danh sach output da chon de hien thi.
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => ApplyAiMediaItemDto)
+    images: ApplyAiMediaItemDto[];
 }

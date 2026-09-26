@@ -1,6 +1,6 @@
 export interface ProductMediaReference {
-  assetId: string;
-  purpose: ProductMediaCleanupPurpose;
+    assetId: string;
+    purpose: ProductMediaCleanupPurpose;
 }
 
-export type ProductMediaCleanupPurpose = "product_image" | "product_video";
+export type ProductMediaCleanupPurpose = 'product_image' | 'product_video';

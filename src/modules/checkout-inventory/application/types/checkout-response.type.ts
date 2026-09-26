@@ -1,26 +1,26 @@
 // File này mô tả snapshot Product trả cho Order Service sau khi revalidate và reserve.
 
 export interface CheckoutReservationResponse {
-  reservationKey: string;
-  items: CheckoutSnapshotItem[];
+    reservationKey: string;
+    items: CheckoutSnapshotItem[];
 }
 
 // Snapshot được lấy từ product database, không dùng dữ liệu Cart để quyết định giá.
 export interface CheckoutSnapshotItem {
-  productId: string;
-  variantId: string;
-  categoryId: string | null;
-  sellerShopId: string | null;
-  sellerOwnerId: string | null;
-  sku: string;
-  productName: string;
-  variantName: string;
-  imageUrl: string | null;
-  unitPrice: string;
-  quantity: number;
-  lineTotal: string;
-  packageWeightGrams: number;
-  packageLengthCm: number;
-  packageWidthCm: number;
-  packageHeightCm: number;
+    productId: string;
+    variantId: string;
+    categoryId: string | null;
+    sellerShopId: string | null;
+    sellerOwnerId: string | null;
+    sku: string;
+    productName: string;
+    variantName: string;
+    imageUrl: string | null;
+    unitPrice: string;
+    quantity: number;
+    lineTotal: string;
+    packageWeightGrams: number;
+    packageLengthCm: number;
+    packageWidthCm: number;
+    packageHeightCm: number;
 }

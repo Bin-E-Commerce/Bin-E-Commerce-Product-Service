@@ -1,12 +1,12 @@
 export enum SellerProductSortBy {
-  UPDATED_AT = "updatedAt",
-  CREATED_AT = "createdAt",
-  NAME = "name",
-  MIN_PRICE = "minPrice",
-  TOTAL_SOLD = "totalSold",
+    UPDATED_AT = 'updatedAt',
+    CREATED_AT = 'createdAt',
+    NAME = 'name',
+    MIN_PRICE = 'minPrice',
+    TOTAL_SOLD = 'totalSold',
 }
 
 export enum SellerProductSortOrder {
-  ASC = "ASC",
-  DESC = "DESC",
+    ASC = 'ASC',
+    DESC = 'DESC',
 }
