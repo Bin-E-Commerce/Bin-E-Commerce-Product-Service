@@ -52,8 +52,11 @@ describe('ProductReviewService', () => {
         ...overrides,
     });
 
-    // Khởi tạo TestingModule với mock repository và mock internal client cho từng test.
+    // Khóa thời gian trong suite để deadline của purchase proof giữ cùng ý nghĩa ở local và CI.
+    // Mốc cố định nằm trước reviewDeadline mặc định; các test hết hạn vẫn truyền deadline quá khứ riêng.
     beforeEach(async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-09-15T12:00:00.000Z'));
         mockReviews = createMock<Repository<ProductReview>>();
         mockLikes = createMock<Repository<ProductReviewLike>>();
         mockOrderReviewClient = createMock<OrderReviewClient>();
@@ -79,8 +82,9 @@ describe('ProductReviewService', () => {
         target = module.get<ProductReviewService>(ProductReviewService);
     });
 
-    // Xóa lịch sử mock sau mỗi test để assertion không phụ thuộc thứ tự chạy.
+    // Khôi phục clock thật để fake timer của suite review không rò sang test suite khác.
     afterEach(() => {
+        jest.useRealTimers();
         jest.clearAllMocks();
     });
 
