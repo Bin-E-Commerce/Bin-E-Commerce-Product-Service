@@ -4,6 +4,9 @@
 import {
     Controller,
     Get,
+    Headers,
+    Body,
+    Patch,
     NotFoundException,
     Param,
     ParseUUIDPipe,
@@ -18,8 +21,19 @@ import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
 import { InternalServiceGuard } from '@/modules/checkout-inventory/presentation/guards/internal-service.guard';
-import { InternalSellerDashboardProductService } from '@/modules/internal/application/services/internal-seller-dashboard-product.service';
+import {
+    InternalSellerDashboardProductService,
+} from '@/modules/internal/application/services/seller-dashboard/internal-seller-dashboard-product.service';
+import {
+    InternalSellerProductCatalogService,
+} from '@/modules/internal/application/services/seller-product-catalog/internal-seller-product-catalog.service';
 import type { InternalSellerDashboardProductSnapshot } from '@/modules/internal/application/types/internal-seller-dashboard-product.type';
+import type { InternalSellerProductCatalogSnapshot } from '@/modules/internal/application/types/internal-seller-product-catalog.type';
+import {
+    InternalSellerInventoryService,
+} from '@/modules/internal/application/services/seller-inventory/internal-seller-inventory.service';
+import { SetSellerInventoryDto } from '@/modules/internal/presentation/dto/set-seller-inventory.dto';
+import { SellerProductAccessService } from '@/modules/seller-products/application/services/access/seller-product-access.service';
 
 // Internal endpoint chỉ trả số liệu tối thiểu, không trả dữ liệu sản phẩm hoặc thông tin của shop khác.
 @Controller('internal/products')
@@ -29,6 +43,9 @@ export class InternalProductController {
         @InjectRepository(Product)
         private readonly productRepository: Repository<Product>,
         private readonly sellerDashboardProductService: InternalSellerDashboardProductService,
+        private readonly sellerProductCatalog: InternalSellerProductCatalogService,
+        private readonly sellerInventory: InternalSellerInventoryService,
+        private readonly sellerProductAccess: SellerProductAccessService,
     ) {}
 
     // Seller Service dùng số lượng này để bảo vệ địa chỉ mặc định đang phục vụ sản phẩm ACTIVE.
@@ -47,12 +64,55 @@ export class InternalProductController {
         return { shopId, activeProductCount };
     }
 
-    // Nhận shopId đã được internal guard xác thực rồi chuyển việc tổng hợp read model cho application service.
+    // Chuyển shopId và optional ownerId từ Seller Service vào read model; internal token bảo vệ ranh giới service-to-service.
     @Get('shops/:shopId/dashboard')
     async getSellerDashboard(
         @Param('shopId', new ParseUUIDPipe()) shopId: string,
+        @Query('ownerUserId', new ParseUUIDPipe({ optional: true }))
+        ownerUserId?: string,
     ): Promise<InternalSellerDashboardProductSnapshot> {
-        return this.sellerDashboardProductService.getSnapshot(shopId);
+        return this.sellerDashboardProductService.getSnapshot(
+            shopId,
+            ownerUserId,
+        );
+    }
+
+    // Trả catalog chưa xóa theo shop/owner đã xác thực để gồm cả sản phẩm legacy thiếu seller_shop_id.
+    @Get('shops/:shopId/catalog')
+    async getSellerProductCatalog(
+        @Param('shopId', new ParseUUIDPipe()) shopId: string,
+        @Query('ownerUserId', new ParseUUIDPipe()) ownerUserId: string,
+    ): Promise<InternalSellerProductCatalogSnapshot> {
+        return this.sellerProductCatalog.getCatalog(shopId, ownerUserId);
+    }
+
+    // Trả các biến thể khớp truy vấn chỉ trong shop đã được Seller Service resolve và gửi qua internal boundary.
+    @Get('shops/:shopId/inventory/search')
+    searchSellerInventory(
+        @Param('shopId', new ParseUUIDPipe()) shopId: string,
+        @Query('q') query = '',
+    ) {
+        return this.sellerInventory.search(shopId, query);
+    }
+
+    // Chỉ cập nhật tồn khả dụng sau khi kiểm tra quyền seller; service khóa bản ghi và từ chối preview đã stale.
+    @Patch('shops/:shopId/inventory/:variantId/available')
+    setSellerInventory(
+        @Headers() headers: Record<string, unknown>,
+        @Param('shopId', new ParseUUIDPipe()) shopId: string,
+        @Param('variantId', new ParseUUIDPipe()) variantId: string,
+        @Body() dto: SetSellerInventoryDto,
+    ) {
+        const user = this.sellerProductAccess.ensureCanUpdateProduct(
+            this.sellerProductAccess.buildCurrentUserFromHeaders(headers),
+        );
+        return this.sellerInventory.setAvailable({
+            shopId,
+            ownerUserId: user.userId,
+            variantId,
+            expectedAvailable: dto.expectedAvailable,
+            nextAvailable: dto.nextAvailable,
+        });
     }
 
     // Cart chỉ cần trạng thái, variant, giá, tồn kho và ảnh dự phòng trước khi ghi item.

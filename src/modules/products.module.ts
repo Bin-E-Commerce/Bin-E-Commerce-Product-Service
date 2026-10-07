@@ -19,7 +19,17 @@ import { BrandsController } from '@/modules/brands/presentation/controllers/bran
 import { BrandsService } from '@/modules/brands/application/services/brands.service';
 import { SellerProductsController } from '@/modules/seller-products/presentation/controllers/seller-products.controller';
 import { InternalProductController } from '@/modules/internal/presentation/controllers/internal-product.controller';
-import { InternalSellerDashboardProductService } from '@/modules/internal/application/services/internal-seller-dashboard-product.service';
+import {
+    InternalSellerDashboardProductService,
+} from '@/modules/internal/application/services/seller-dashboard/internal-seller-dashboard-product.service';
+import {
+    InternalSellerProductCatalogService,
+} from '@/modules/internal/application/services/seller-product-catalog/internal-seller-product-catalog.service';
+import {
+    InternalSellerInventoryService,
+} from '@/modules/internal/application/services/seller-inventory/internal-seller-inventory.service';
+import { INTERNAL_SELLER_PRODUCT_CATALOG_REPOSITORY } from '@/modules/internal/application/ports/internal-seller-product-catalog.repository.port';
+import { TypeOrmInternalSellerProductCatalogRepository } from '@/modules/internal/infrastructure/repositories/typeorm-internal-seller-product-catalog.repository';
 import { CatalogClient } from '@/modules/seller-products/application/clients/catalog.client';
 import { SellerShopClient } from '@/modules/seller-products/application/clients/seller-shop.client';
 import { ProductMediaClient } from '@/modules/seller-products/application/clients/product-media.client';
@@ -94,6 +104,12 @@ import { OrderSalesClient } from '@/modules/seller-products/application/clients/
         ReviewMediaClient,
         OrderSalesClient,
         InternalSellerDashboardProductService,
+        InternalSellerInventoryService,
+        InternalSellerProductCatalogService,
+        {
+            provide: INTERNAL_SELLER_PRODUCT_CATALOG_REPOSITORY,
+            useClass: TypeOrmInternalSellerProductCatalogRepository,
+        },
     ],
     exports: [StorefrontProductsService, SellerProductsService],
 })
