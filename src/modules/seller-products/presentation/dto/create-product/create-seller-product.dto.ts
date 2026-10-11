@@ -7,7 +7,6 @@ import {
     IsEnum,
     IsIn,
     IsOptional,
-    IsInt,
     IsString,
     IsUUID,
     MaxLength,
@@ -49,11 +48,6 @@ export class CreateSellerProductDto {
     @IsString()
     @MaxLength(500)
     shortDescription?: string;
-
-    @IsOptional()
-    @IsString()
-    @MaxLength(32)
-    gtin?: string;
 
     @IsOptional()
     @IsString()

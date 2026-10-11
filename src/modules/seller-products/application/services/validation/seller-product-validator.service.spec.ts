@@ -39,7 +39,6 @@ function createValidPayload(): CreateSellerProductDto {
         variants: [
             {
                 optionValueClientIds: [],
-                withoutGtin: true,
                 price: 150_000,
                 stockQuantity: 10,
             },
@@ -212,7 +211,6 @@ describe('SellerProductValidatorService', () => {
         payload.variants = [
             {
                 optionValueClientIds: ['black', 'small'],
-                withoutGtin: true,
                 price: 150_000,
                 stockQuantity: 10,
             },
@@ -224,16 +222,7 @@ describe('SellerProductValidatorService', () => {
         ).toThrow(BadRequestException);
     });
 
-    it('rejects an invalid GTIN and an original price below the sale price', () => {
-        // Arrange: GTIN phải có đúng độ dài thương mại được hỗ trợ.
-        const invalidGtinPayload = createValidPayload();
-        invalidGtinPayload.gtin = '12345';
-
-        // Act/Assert: mã định danh không hợp lệ bị chặn ngay ở tầng nghiệp vụ.
-        expect(() =>
-            target.validate(invalidGtinPayload, createValidCategory(), []),
-        ).toThrow(BadRequestException);
-
+    it('rejects an original price below the sale price', () => {
         // Arrange: giá gốc thấp hơn giá bán tạo ra dữ liệu hiển thị sai.
         const invalidPricePayload = createValidPayload();
         invalidPricePayload.variants[0]!.originalPrice = 100_000;

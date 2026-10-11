@@ -1,8 +1,8 @@
+// DTO của một SKU chỉ nhận phân loại, giá, tồn kho và mã SKU do seller quản lý.
 import { Type } from 'class-transformer';
 import {
     ArrayMaxSize,
     IsArray,
-    IsBoolean,
     IsInt,
     IsNumber,
     IsOptional,
@@ -22,14 +22,6 @@ export class CreateProductVariantDto {
     @IsString()
     @MaxLength(160)
     sku?: string;
-
-    @IsOptional()
-    @IsString()
-    @MaxLength(32)
-    gtin?: string;
-
-    @IsBoolean()
-    withoutGtin: boolean;
 
     @Type(() => Number)
     @IsNumber({ maxDecimalPlaces: 2 })

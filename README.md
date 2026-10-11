@@ -334,7 +334,7 @@ A product stores:
 - seller shop and seller owner references;
 - Catalog category and optional brand references;
 - name, descriptions, condition, origin, and package dimensions;
-- product-level SKU and GTIN;
+- product-level SKU;
 - product status and soft-deletion metadata;
 - minimum and maximum active-variant prices;
 - sold, rating, review, and view counters;

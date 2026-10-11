@@ -1,3 +1,4 @@
+// Xác thực các quy tắc sản phẩm trước transaction, không phụ thuộc DTO đã loại bỏ GTIN.
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateSellerProductDto } from '@/modules/seller-products/presentation/dto/create-product/create-seller-product.dto';
 import type {
@@ -8,7 +9,6 @@ import type {
 const SELECT_INPUT_TYPES = new Set(['SINGLE_SELECT', 'MULTI_SELECT']);
 const NUMBER_INPUT_TYPES = new Set(['INTEGER', 'DECIMAL']);
 const TEXT_INPUT_TYPES = new Set(['TEXT', 'TEXTAREA', 'DATE', 'DATETIME']);
-const GTIN_PATTERN = /^(?:\d{8}|\d{12}|\d{13}|\d{14})$/;
 
 @Injectable()
 export class SellerProductValidatorService {
@@ -23,7 +23,7 @@ export class SellerProductValidatorService {
         this.validateVideo(dto);
         this.validateAttributes(dto, catalogAttributes);
         this.validateOptionsAndVariants(dto);
-        this.validateCommercialCodes(dto);
+        this.validateSkusAndPrices(dto);
     }
 
     // Chỉ category lá đang hoạt động mới được gắn trực tiếp vào sản phẩm bán hàng.
@@ -312,18 +312,8 @@ export class SellerProductValidatorService {
         );
     }
 
-    // Kiểm tra GTIN, SKU và giá để lỗi nghiệp vụ được trả trước khi database báo constraint khó hiểu.
-    private validateCommercialCodes(dto: CreateSellerProductDto): void {
-        const gtins = [
-            dto.gtin,
-            ...dto.variants.map((variant) => variant.gtin),
-        ].filter((value): value is string => Boolean(value));
-        if (gtins.some((gtin) => !GTIN_PATTERN.test(gtin))) {
-            throw new BadRequestException(
-                'GTIN phải gồm 8, 12, 13 hoặc 14 chữ số.',
-            );
-        }
-
+    // Kiểm tra SKU seller và quan hệ giá trước khi database báo lỗi constraint khó hiểu.
+    private validateSkusAndPrices(dto: CreateSellerProductDto): void {
         this.assertUnique(
             dto.variants
                 .map((variant) => variant.sku?.trim().toLowerCase())
@@ -332,16 +322,6 @@ export class SellerProductValidatorService {
         );
 
         for (const variant of dto.variants) {
-            if (!variant.gtin && !variant.withoutGtin && !dto.gtin) {
-                throw new BadRequestException(
-                    'Mỗi variant phải có GTIN hoặc được đánh dấu là không có GTIN.',
-                );
-            }
-            if (variant.gtin && variant.withoutGtin) {
-                throw new BadRequestException(
-                    'Variant đã có GTIN không thể đồng thời đánh dấu không có GTIN.',
-                );
-            }
             if (
                 variant.originalPrice &&
                 variant.originalPrice < variant.price

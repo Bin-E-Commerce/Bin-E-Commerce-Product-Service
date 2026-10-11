@@ -221,7 +221,6 @@ export class SellerProductUpdateService {
                     product.description = dto.description.trim();
                     product.shortDescription =
                         dto.shortDescription?.trim() || null;
-                    product.gtin = dto.gtin?.trim() || null;
                     product.sellerSku = dto.sellerSku?.trim() || null;
                     product.condition = dto.condition;
                     product.countryOfOrigin =
@@ -596,9 +595,6 @@ export class SellerProductUpdateService {
                     : product.name;
             entity.price = input.price.toFixed(2);
             entity.originalPrice = input.originalPrice?.toFixed(2) ?? null;
-            entity.gtin = input.gtin?.trim() || product.gtin;
-            entity.withoutGtin =
-                !input.gtin && !product.gtin && input.withoutGtin;
             // Payload chỉnh sửa dùng tồn khả dụng; stockQuantity vẫn lưu tổng vật lý gồm cả lượng đang giữ chỗ.
             entity.stockQuantity = input.stockQuantity + reserved;
             entity.weight = (

@@ -105,14 +105,6 @@ export class UpdateProductVariantDto {
     @MaxLength(160)
     sku?: string;
 
-    @IsOptional()
-    @IsString()
-    @MaxLength(32)
-    gtin?: string;
-
-    @IsBoolean()
-    withoutGtin: boolean;
-
     @Type(() => Number)
     @IsNumber({ maxDecimalPlaces: 2 })
     @Min(100)
@@ -157,11 +149,6 @@ export class UpdateSellerProductDto {
     @IsString()
     @MaxLength(500)
     shortDescription?: string;
-
-    @IsOptional()
-    @IsString()
-    @MaxLength(32)
-    gtin?: string;
 
     @IsOptional()
     @IsString()

@@ -92,7 +92,6 @@ export class SellerProductCreationService {
                             description: dto.description.trim(),
                             shortDescription:
                                 dto.shortDescription?.trim() || null,
-                            gtin: dto.gtin?.trim() || null,
                             sellerSku: dto.sellerSku?.trim() || null,
                             condition: dto.condition,
                             countryOfOrigin:
@@ -286,10 +285,6 @@ export class SellerProductCreationService {
                             : product.name,
                     price: variant.price.toFixed(2),
                     originalPrice: variant.originalPrice?.toFixed(2) ?? null,
-                    gtin: variant.gtin?.trim() || product.gtin,
-                    // Khi variant kế thừa GTIN cấp product, không được đồng thời đánh dấu là "không có GTIN".
-                    withoutGtin:
-                        !variant.gtin && !product.gtin && variant.withoutGtin,
                     stockQuantity: variant.stockQuantity,
                     weight: (dto.package.weightGrams / 1_000).toFixed(3),
                     status: ProductVariantStatus.ACTIVE,
