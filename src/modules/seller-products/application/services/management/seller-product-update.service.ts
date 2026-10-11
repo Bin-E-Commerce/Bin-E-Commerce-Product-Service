@@ -68,6 +68,95 @@ export class SellerProductUpdateService {
         private readonly catalogEvents?: CatalogEventPublisherService,
     ) {}
 
+    // Cập nhật riêng nội dung Agent được phép sửa, giữ nguyên biến thể/ảnh/thuộc tính và khóa theo shop.
+    // Giá trị expected ngăn preview cũ ghi đè nội dung seller vừa sửa ở màn quản lý sản phẩm.
+    // Validation giữ cùng giới hạn tên/mô tả của luồng cập nhật thường; mọi lỗi xảy ra trước khi phát catalog event.
+    async updateAgentContent(input: {
+        currentUser: SellerProductUserContext;
+        shopId: string;
+        productId: string;
+        expectedName?: string;
+        nextName?: string;
+        expectedDescription?: string | null;
+        nextDescription?: string;
+    }): Promise<{
+        productId: string;
+        name: string;
+        description: string | null;
+        updatedAt: Date;
+    }> {
+        const changesName = input.nextName !== undefined;
+        const changesDescription = input.nextDescription !== undefined;
+        if (
+            changesName !== (input.expectedName !== undefined) ||
+            changesDescription !== (input.expectedDescription !== undefined) ||
+            (!changesName && !changesDescription)
+        ) {
+            throw new BadRequestException(
+                'Đề xuất nội dung phải gửi đủ giá trị hiện tại và giá trị mới cho ít nhất một trường.',
+            );
+        }
+
+        return this.dataSource.transaction(async (manager) => {
+            const product = await manager.findOne(Product, {
+                where: {
+                    id: input.productId,
+                    sellerShopId: input.shopId,
+                    sellerOwnerId: input.currentUser.userId,
+                    originType: ProductOriginType.INTERNAL,
+                },
+                lock: { mode: 'pessimistic_write' },
+            });
+            if (!product || product.status === ProductStatus.DELETED) {
+                throw new NotFoundException(
+                    'Không tìm thấy sản phẩm trong shop của bạn.',
+                );
+            }
+
+            // So sánh từng trường được sửa; không chặn nếu trường không liên quan đã đổi ở màn khác.
+            if (
+                (changesName && product.name !== input.expectedName) ||
+                (changesDescription &&
+                    product.description !== input.expectedDescription)
+            ) {
+                throw new ConflictException(
+                    'Thông tin sản phẩm vừa thay đổi. Hãy rà soát và tạo đề xuất mới.',
+                );
+            }
+
+            const nextName = input.nextName?.trim();
+            const nextDescription = input.nextDescription?.trim();
+            if (
+                (nextName !== undefined &&
+                    (nextName.length < 20 || nextName.length > 200)) ||
+                (nextDescription !== undefined &&
+                    (nextDescription.length < 20 ||
+                        nextDescription.length > 30_000))
+            ) {
+                throw new BadRequestException(
+                    'Tên sản phẩm phải từ 20 đến 200 ký tự; mô tả phải từ 20 đến 30.000 ký tự.',
+                );
+            }
+
+            if (nextName !== undefined) product.name = nextName;
+            if (nextDescription !== undefined)
+                product.description = nextDescription;
+            await manager.save(Product, product);
+            await this.catalogEvents?.publish(
+                product.id,
+                CatalogEventPublisherService.topics.upserted,
+                manager,
+            );
+
+            return {
+                productId: product.id,
+                name: product.name,
+                description: product.description,
+                updatedAt: product.updatedAt,
+            };
+        });
+    }
+
     // Kiểm tra tham chiếu bên ngoài trước rồi thay thế toàn bộ product graph trong một transaction để không lưu dữ liệu dở dang.
     async update(
         currentUser: SellerProductUserContext,

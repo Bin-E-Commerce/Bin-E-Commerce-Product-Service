@@ -3,6 +3,7 @@
 
 import {
     Controller,
+    DefaultValuePipe,
     Get,
     Headers,
     Body,
@@ -10,6 +11,7 @@ import {
     NotFoundException,
     Param,
     ParseUUIDPipe,
+    ParseIntPipe,
     Query,
     UseGuards,
 } from '@nestjs/common';
@@ -21,19 +23,16 @@ import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
 import { InternalServiceGuard } from '@/modules/checkout-inventory/presentation/guards/internal-service.guard';
-import {
-    InternalSellerDashboardProductService,
-} from '@/modules/internal/application/services/seller-dashboard/internal-seller-dashboard-product.service';
-import {
-    InternalSellerProductCatalogService,
-} from '@/modules/internal/application/services/seller-product-catalog/internal-seller-product-catalog.service';
+import { InternalSellerDashboardProductService } from '@/modules/internal/application/services/seller-dashboard/internal-seller-dashboard-product.service';
+import { InternalSellerProductCatalogService } from '@/modules/internal/application/services/seller-product-catalog/internal-seller-product-catalog.service';
 import type { InternalSellerDashboardProductSnapshot } from '@/modules/internal/application/types/internal-seller-dashboard-product.type';
 import type { InternalSellerProductCatalogSnapshot } from '@/modules/internal/application/types/internal-seller-product-catalog.type';
-import {
-    InternalSellerInventoryService,
-} from '@/modules/internal/application/services/seller-inventory/internal-seller-inventory.service';
+import { InternalSellerInventoryService } from '@/modules/internal/application/services/seller-inventory/internal-seller-inventory.service';
 import { SetSellerInventoryDto } from '@/modules/internal/presentation/dto/set-seller-inventory.dto';
+import { SetSellerVariantPriceDto } from '@/modules/internal/presentation/dto/set-seller-variant-price.dto';
+import { UpdateSellerProductAgentContentDto } from '@/modules/internal/presentation/dto/update-seller-product-agent-content.dto';
 import { SellerProductAccessService } from '@/modules/seller-products/application/services/access/seller-product-access.service';
+import { SellerProductUpdateService } from '@/modules/seller-products/application/services/management/seller-product-update.service';
 
 // Internal endpoint chỉ trả số liệu tối thiểu, không trả dữ liệu sản phẩm hoặc thông tin của shop khác.
 @Controller('internal/products')
@@ -46,6 +45,7 @@ export class InternalProductController {
         private readonly sellerProductCatalog: InternalSellerProductCatalogService,
         private readonly sellerInventory: InternalSellerInventoryService,
         private readonly sellerProductAccess: SellerProductAccessService,
+        private readonly sellerProductUpdate: SellerProductUpdateService,
     ) {}
 
     // Seller Service dùng số lượng này để bảo vệ địa chỉ mặc định đang phục vụ sản phẩm ACTIVE.
@@ -82,8 +82,45 @@ export class InternalProductController {
     async getSellerProductCatalog(
         @Param('shopId', new ParseUUIDPipe()) shopId: string,
         @Query('ownerUserId', new ParseUUIDPipe()) ownerUserId: string,
+        @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
     ): Promise<InternalSellerProductCatalogSnapshot> {
-        return this.sellerProductCatalog.getCatalog(shopId, ownerUserId);
+        return this.sellerProductCatalog.getCatalog(
+            shopId,
+            ownerUserId,
+            offset,
+        );
+    }
+
+    // Trả trang biến thể sắp hết theo owner/shop đã được Seller Service resolve; giới hạn trang được application service áp dụng.
+    @Get('shops/:shopId/inventory/low-stock')
+    listSellerLowStock(
+        @Param('shopId', new ParseUUIDPipe()) shopId: string,
+        @Query('ownerUserId', new ParseUUIDPipe()) ownerUserId: string,
+        @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
+        @Query('limit', new DefaultValuePipe(100), ParseIntPipe) limit: number,
+    ) {
+        return this.sellerInventory.listLowStock({
+            shopId,
+            ownerUserId,
+            offset,
+            limit,
+        });
+    }
+
+    // Rà biến thể cho đề xuất xả hàng; service bắt buộc scope shop và owner trước khi trả giá/tồn hiện tại.
+    @Get('shops/:shopId/inventory/active-variants')
+    listSellerActiveVariants(
+        @Param('shopId', new ParseUUIDPipe()) shopId: string,
+        @Query('ownerUserId', new ParseUUIDPipe()) ownerUserId: string,
+        @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
+        @Query('limit', new DefaultValuePipe(100), ParseIntPipe) limit: number,
+    ) {
+        return this.sellerInventory.listActiveVariants({
+            shopId,
+            ownerUserId,
+            offset,
+            limit,
+        });
     }
 
     // Trả các biến thể khớp truy vấn chỉ trong shop đã được Seller Service resolve và gửi qua internal boundary.
@@ -112,6 +149,46 @@ export class InternalProductController {
             variantId,
             expectedAvailable: dto.expectedAvailable,
             nextAvailable: dto.nextAvailable,
+        });
+    }
+
+    // Đổi giá đúng variant trong shop; quyền seller được kiểm tra lại tại Product Service trước compare-and-set.
+    @Patch('shops/:shopId/variants/:variantId/price')
+    setSellerVariantPrice(
+        @Headers() headers: Record<string, unknown>,
+        @Param('shopId', new ParseUUIDPipe()) shopId: string,
+        @Param('variantId', new ParseUUIDPipe()) variantId: string,
+        @Body() dto: SetSellerVariantPriceDto,
+    ) {
+        const user = this.sellerProductAccess.ensureCanUpdateProduct(
+            this.sellerProductAccess.buildCurrentUserFromHeaders(headers),
+        );
+        return this.sellerInventory.setVariantPrice({
+            shopId,
+            ownerUserId: user.userId,
+            variantId,
+            expectedPrice: dto.expectedPrice,
+            nextPrice: dto.nextPrice,
+            minimumPrice: dto.minimumPrice,
+        });
+    }
+
+    // Cập nhật giới hạn ở tên/mô tả, không nhận full product graph từ model hoặc service gọi nội bộ.
+    @Patch('shops/:shopId/products/:productId/agent-content')
+    updateSellerProductAgentContent(
+        @Headers() headers: Record<string, unknown>,
+        @Param('shopId', new ParseUUIDPipe()) shopId: string,
+        @Param('productId', new ParseUUIDPipe()) productId: string,
+        @Body() dto: UpdateSellerProductAgentContentDto,
+    ) {
+        const user = this.sellerProductAccess.ensureCanUpdateProduct(
+            this.sellerProductAccess.buildCurrentUserFromHeaders(headers),
+        );
+        return this.sellerProductUpdate.updateAgentContent({
+            currentUser: user,
+            shopId,
+            productId,
+            ...dto,
         });
     }
 

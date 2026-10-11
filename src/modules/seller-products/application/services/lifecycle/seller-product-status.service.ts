@@ -33,6 +33,10 @@ export class SellerProductStatusService {
         currentUser: SellerProductUserContext,
         productId: string,
         targetStatus: SellerProductPublicationStatus,
+        expected?: {
+            shopId: string;
+            status: SellerProductPublicationStatus;
+        },
     ): Promise<ChangeProductStatusResponse> {
         await this.ensureShippingReadyBeforeActivation(
             productId,
@@ -45,7 +49,15 @@ export class SellerProductStatusService {
                 manager,
                 productId,
                 currentUser.userId,
+                expected?.shopId,
             );
+
+            // Preview chỉ hợp lệ nếu status chưa bị đổi ở nơi khác; mismatch phải yêu cầu seller rà soát lại.
+            if (expected && product.status !== expected.status) {
+                throw new ConflictException(
+                    'Trạng thái sản phẩm vừa thay đổi. Hãy rà soát lại trước khi xác nhận.',
+                );
+            }
 
             this.assertStatusTransition(product.status, targetStatus);
 
@@ -108,11 +120,13 @@ export class SellerProductStatusService {
         manager: EntityManager,
         productId: string,
         ownerId: string,
+        shopId?: string,
     ): Promise<Product> {
         const product = await manager.findOne(Product, {
             where: {
                 id: productId,
                 sellerOwnerId: ownerId,
+                ...(shopId ? { sellerShopId: shopId } : {}),
                 originType: ProductOriginType.INTERNAL,
             },
             lock: { mode: 'pessimistic_write' },

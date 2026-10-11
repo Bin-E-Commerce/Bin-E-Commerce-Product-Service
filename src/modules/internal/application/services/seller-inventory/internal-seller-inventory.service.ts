@@ -24,6 +24,30 @@ export interface SellerInventorySearchResult {
     sellerSku: string | null;
     available: number;
     reserved: number;
+    price?: number;
+}
+
+export interface SellerLowStockResult {
+    productId: string;
+    productName: string;
+    variantId: string;
+    variantName: string;
+    sku: string;
+    sellerSku: string | null;
+    available: number;
+    reserved: number;
+    lowStockThreshold: number;
+}
+
+export interface SellerActiveVariantResult {
+    productId: string;
+    productName: string;
+    variantId: string;
+    variantName: string;
+    sku: string;
+    sellerSku: string | null;
+    price: number;
+    available: number;
 }
 
 @Injectable()
@@ -41,14 +65,48 @@ export class InternalSellerInventoryService {
     ) {}
 
     // Tìm tối đa mười biến thể theo tên/SKU trong shop đã được resolve; không trả biến thể inactive hoặc shop khác.
-    async search(shopId: string, query: string): Promise<SellerInventorySearchResult[]> {
+    async search(
+        shopId: string,
+        query: string,
+    ): Promise<SellerInventorySearchResult[]> {
         const normalizedQuery = query.trim();
         if (normalizedQuery.length < 2) return [];
         const excludedWords = new Set([
-            'tồn', 'kho', 'khả', 'dụng', 'còn', 'bao', 'nhiêu', 'số', 'lượng',
-            'sản', 'phẩm', 'shop', 'của', 'mình', 'tôi', 'bạn', 'cho',
-            'xem', 'kiểm', 'tra', 'danh', 'sách', 'hiện', 'tại', 'đang', 'có',
-            'nào', 'nhất', 'bán', 'chạy', 'hàng', 'giúp', 'nhé', 'nha', 'đi',
+            'tồn',
+            'kho',
+            'khả',
+            'dụng',
+            'còn',
+            'bao',
+            'nhiêu',
+            'số',
+            'lượng',
+            'sản',
+            'phẩm',
+            'shop',
+            'của',
+            'mình',
+            'tôi',
+            'bạn',
+            'cho',
+            'xem',
+            'kiểm',
+            'tra',
+            'danh',
+            'sách',
+            'hiện',
+            'tại',
+            'đang',
+            'có',
+            'nào',
+            'nhất',
+            'bán',
+            'chạy',
+            'hàng',
+            'giúp',
+            'nhé',
+            'nha',
+            'đi',
         ]);
         const searchTerms = (normalizedQuery.match(/[\p{L}\p{N}-]+/gu) ?? [])
             .filter((term) => term.length > 1)
@@ -106,17 +164,176 @@ export class InternalSellerInventoryService {
             ) {
                 return [];
             }
-            return [{
-                productId: row.productId,
-                productName: row.productName,
-                variantId: row.variantId,
-                variantName: row.variantName,
-                sku: row.sku,
-                sellerSku: row.sellerSku || null,
-                available: Number(row.available),
-                reserved: Number(row.reserved),
-            }];
+            return [
+                {
+                    productId: row.productId,
+                    productName: row.productName,
+                    variantId: row.variantId,
+                    variantName: row.variantName,
+                    sku: row.sku,
+                    sellerSku: row.sellerSku || null,
+                    available: Number(row.available),
+                    reserved: Number(row.reserved),
+                },
+            ];
         });
+    }
+
+    // Trả từng trang biến thể đang bán để Agent rà toàn shop mà không bị catalog insight giới hạn tổng variant.
+    // Chỉ lấy record có cả shop lẫn owner khớp; legacy không gắn shop bị loại vì Order Service không thể gán sale cho shop đó.
+    async listActiveVariants(input: {
+        shopId: string;
+        ownerUserId: string;
+        offset: number;
+        limit: number;
+    }): Promise<{ items: SellerActiveVariantResult[]; hasMore: boolean }> {
+        const safeOffset = Number.isSafeInteger(input.offset)
+            ? Math.max(0, input.offset)
+            : 0;
+        const safeLimit = Number.isSafeInteger(input.limit)
+            ? Math.min(100, Math.max(1, input.limit))
+            : 100;
+        const rows = await this.productRepository
+            .createQueryBuilder('product')
+            .innerJoin('product.variants', 'variant')
+            .leftJoin('variant.inventory', 'inventory')
+            .select('product.id', 'productId')
+            .addSelect('product.name', 'productName')
+            .addSelect('variant.id', 'variantId')
+            .addSelect('variant.name', 'variantName')
+            .addSelect('variant.sku', 'sku')
+            .addSelect('variant.sellerSku', 'sellerSku')
+            .addSelect('variant.price', 'price')
+            .addSelect(
+                'COALESCE(inventory.quantityAvailable, variant.stockQuantity, 0)',
+                'available',
+            )
+            .where('product.seller_shop_id = :shopId', {
+                shopId: input.shopId,
+            })
+            .andWhere('product.seller_owner_id = :ownerUserId', {
+                ownerUserId: input.ownerUserId,
+            })
+            .andWhere('product.origin_type = :originType', {
+                originType: ProductOriginType.INTERNAL,
+            })
+            .andWhere('product.status = :productStatus', {
+                productStatus: ProductStatus.ACTIVE,
+            })
+            .andWhere('variant.status = :variantStatus', {
+                variantStatus: ProductVariantStatus.ACTIVE,
+            })
+            .orderBy('product.id', 'ASC')
+            .addOrderBy('variant.id', 'ASC')
+            .offset(safeOffset)
+            .limit(safeLimit + 1)
+            .getRawMany<Record<string, string>>();
+        const hasMore = rows.length > safeLimit;
+        const items = rows.slice(0, safeLimit).flatMap((row) => {
+            if (
+                !row.productId ||
+                !row.productName ||
+                !row.variantId ||
+                !row.variantName ||
+                !row.sku
+            ) {
+                return [];
+            }
+            return [
+                {
+                    productId: row.productId,
+                    productName: row.productName,
+                    variantId: row.variantId,
+                    variantName: row.variantName,
+                    sku: row.sku,
+                    sellerSku: row.sellerSku || null,
+                    price: Number(row.price),
+                    available: Number(row.available),
+                },
+            ];
+        });
+        return { items, hasMore };
+    }
+
+    // Lấy trang biến thể sắp hết bằng điều kiện SQL để không phải tải variantLimit của catalog vào bộ nhớ Seller Service.
+    async listLowStock(input: {
+        shopId: string;
+        ownerUserId: string;
+        offset: number;
+        limit: number;
+    }): Promise<{ items: SellerLowStockResult[]; hasMore: boolean }> {
+        const safeOffset = Number.isSafeInteger(input.offset)
+            ? Math.max(0, input.offset)
+            : 0;
+        const safeLimit = Number.isSafeInteger(input.limit)
+            ? Math.min(100, Math.max(1, input.limit))
+            : 100;
+        const rows = await this.productRepository
+            .createQueryBuilder('product')
+            .innerJoin('product.variants', 'variant')
+            .leftJoin('variant.inventory', 'inventory')
+            .select('product.id', 'productId')
+            .addSelect('product.name', 'productName')
+            .addSelect('variant.id', 'variantId')
+            .addSelect('variant.name', 'variantName')
+            .addSelect('variant.sku', 'sku')
+            .addSelect('variant.sellerSku', 'sellerSku')
+            .addSelect(
+                'COALESCE(inventory.quantityAvailable, variant.stockQuantity, 0)',
+                'available',
+            )
+            .addSelect('COALESCE(inventory.quantityReserved, 0)', 'reserved')
+            .addSelect('COALESCE(inventory.lowStockThreshold, 5)', 'threshold')
+            .where('product.seller_shop_id = :shopId', {
+                shopId: input.shopId,
+            })
+            .andWhere('product.seller_owner_id = :ownerUserId', {
+                ownerUserId: input.ownerUserId,
+            })
+            .andWhere('product.origin_type = :originType', {
+                originType: ProductOriginType.INTERNAL,
+            })
+            .andWhere('product.status = :activeProductStatus', {
+                activeProductStatus: ProductStatus.ACTIVE,
+            })
+            .andWhere('variant.status = :activeVariantStatus', {
+                activeVariantStatus: ProductVariantStatus.ACTIVE,
+            })
+            .andWhere(
+                'COALESCE(inventory.quantityAvailable, variant.stockQuantity, 0) <= COALESCE(inventory.lowStockThreshold, 5)',
+            )
+            .orderBy(
+                'COALESCE(inventory.quantityAvailable, variant.stockQuantity, 0)',
+                'ASC',
+            )
+            .addOrderBy('product.id', 'ASC')
+            .addOrderBy('variant.id', 'ASC')
+            .offset(safeOffset)
+            .limit(safeLimit + 1)
+            .getRawMany<Record<string, string>>();
+        const hasMore = rows.length > safeLimit;
+        const items = rows.slice(0, safeLimit).flatMap((row) =>
+            row.productId &&
+            row.productName &&
+            row.variantId &&
+            row.variantName &&
+            row.sku
+                ? [
+                      {
+                          productId: row.productId,
+                          productName: row.productName,
+                          variantId: row.variantId,
+                          variantName: row.variantName,
+                          sku: row.sku,
+                          sellerSku: row.sellerSku || null,
+                          available: Number(row.available),
+                          reserved: Number(row.reserved),
+                          lowStockThreshold: Number(row.threshold),
+                      },
+                  ]
+                : [],
+        );
+        return { items, hasMore };
     }
 
     // Đặt số tồn khả dụng theo preview có điều kiện optimistic; khóa inventory trước khi ghi để giao dịch checkout không bị ghi đè.
@@ -132,24 +349,30 @@ export class InternalSellerInventoryService {
             input.nextAvailable < 0 ||
             input.nextAvailable > 2_147_483_647
         ) {
-            throw new BadRequestException('Tồn khả dụng phải là số nguyên không âm.');
+            throw new BadRequestException(
+                'Tồn khả dụng phải là số nguyên không âm.',
+            );
         }
 
         return this.dataSource.transaction(async (manager) => {
-            const variant = await manager.getRepository(ProductVariant).findOne({
-                where: {
-                    id: input.variantId,
-                    product: {
-                        sellerShopId: input.shopId,
-                        sellerOwnerId: input.ownerUserId,
-                        originType: ProductOriginType.INTERNAL,
+            const variant = await manager
+                .getRepository(ProductVariant)
+                .findOne({
+                    where: {
+                        id: input.variantId,
+                        product: {
+                            sellerShopId: input.shopId,
+                            sellerOwnerId: input.ownerUserId,
+                            originType: ProductOriginType.INTERNAL,
+                        },
+                        status: ProductVariantStatus.ACTIVE,
                     },
-                    status: ProductVariantStatus.ACTIVE,
-                },
-                relations: { product: true },
-            });
+                    relations: { product: true },
+                });
             if (!variant || variant.product.status === ProductStatus.DELETED) {
-                throw new NotFoundException('Không tìm thấy biến thể trong shop của bạn.');
+                throw new NotFoundException(
+                    'Không tìm thấy biến thể trong shop của bạn.',
+                );
             }
 
             const inventory = await manager.getRepository(Inventory).findOne({
@@ -157,7 +380,9 @@ export class InternalSellerInventoryService {
                 lock: { mode: 'pessimistic_write' },
             });
             if (!inventory) {
-                throw new NotFoundException('Biến thể chưa có bản ghi tồn kho.');
+                throw new NotFoundException(
+                    'Biến thể chưa có bản ghi tồn kho.',
+                );
             }
             if (inventory.quantityAvailable !== input.expectedAvailable) {
                 throw new ConflictException(
@@ -175,7 +400,8 @@ export class InternalSellerInventoryService {
 
             // stockQuantity là tổng vật lý; phần đang được giữ cho đơn phải được cộng lại, không bị thao tác seller xóa.
             inventory.quantityAvailable = input.nextAvailable;
-            variant.stockQuantity = input.nextAvailable + inventory.quantityReserved;
+            variant.stockQuantity =
+                input.nextAvailable + inventory.quantityReserved;
             await manager.getRepository(Inventory).save(inventory);
             await manager.getRepository(ProductVariant).save(variant);
             await this.catalogEvents.publishForVariants([variant.id], manager);
@@ -185,6 +411,92 @@ export class InternalSellerInventoryService {
                 available: inventory.quantityAvailable,
                 reserved: inventory.quantityReserved,
             };
+        });
+    }
+
+    // Đặt giá biến thể theo compare-and-set để preview cũ không ghi đè giá seller vừa sửa ở màn khác.
+    async setVariantPrice(input: {
+        shopId: string;
+        ownerUserId: string;
+        variantId: string;
+        expectedPrice: number;
+        nextPrice: number;
+        minimumPrice?: number;
+    }): Promise<{ variantId: string; price: number }> {
+        if (
+            !Number.isFinite(input.nextPrice) ||
+            input.nextPrice < 100 ||
+            Math.round(input.nextPrice * 100) !== input.nextPrice * 100
+        ) {
+            throw new BadRequestException(
+                'Giá biến thể phải từ 100 đồng và tối đa hai chữ số thập phân.',
+            );
+        }
+        if (
+            input.minimumPrice !== undefined &&
+            (!Number.isFinite(input.minimumPrice) ||
+                input.minimumPrice < 100 ||
+                input.nextPrice < input.minimumPrice)
+        ) {
+            throw new BadRequestException(
+                'Giá mới không được thấp hơn giá sàn người bán đã đặt.',
+            );
+        }
+
+        return this.dataSource.transaction(async (manager) => {
+            const variant = await manager
+                .getRepository(ProductVariant)
+                .findOne({
+                    where: {
+                        id: input.variantId,
+                        product: {
+                            sellerShopId: input.shopId,
+                            sellerOwnerId: input.ownerUserId,
+                            originType: ProductOriginType.INTERNAL,
+                        },
+                        status: ProductVariantStatus.ACTIVE,
+                    },
+                    relations: { product: true },
+                    lock: { mode: 'pessimistic_write' },
+                });
+            if (!variant || variant.product.status === ProductStatus.DELETED) {
+                throw new NotFoundException(
+                    'Không tìm thấy biến thể đang bán trong shop của bạn.',
+                );
+            }
+
+            const currentPrice = Number(variant.price);
+            if (currentPrice !== input.expectedPrice) {
+                throw new ConflictException(
+                    'Giá sản phẩm vừa thay đổi. Hãy tạo đề xuất mới với giá hiện tại.',
+                );
+            }
+
+            variant.price = input.nextPrice.toFixed(2);
+            await manager.getRepository(ProductVariant).save(variant);
+            const activePrices = await manager
+                .getRepository(ProductVariant)
+                .find({
+                    where: {
+                        productId: variant.productId,
+                        status: ProductVariantStatus.ACTIVE,
+                    },
+                    select: { price: true },
+                });
+            variant.product.minPrice = Math.min(
+                ...activePrices.map((item) => Number(item.price)),
+            ).toFixed(2);
+            variant.product.maxPrice = Math.max(
+                ...activePrices.map((item) => Number(item.price)),
+            ).toFixed(2);
+            await manager.getRepository(Product).save(variant.product);
+            await this.catalogEvents.publish(
+                variant.productId,
+                CatalogEventPublisherService.topics.upserted,
+                manager,
+            );
+
+            return { variantId: variant.id, price: input.nextPrice };
         });
     }
 }
