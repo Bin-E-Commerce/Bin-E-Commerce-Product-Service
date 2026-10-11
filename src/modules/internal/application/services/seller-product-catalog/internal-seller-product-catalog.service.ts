@@ -23,12 +23,18 @@ export class InternalSellerProductCatalogService {
     async getCatalog(
         shopId: string,
         ownerUserId: string,
+        offset = 0,
     ): Promise<InternalSellerProductCatalogSnapshot> {
+        // Offset âm hoặc vượt giới hạn an toàn không được chuyển thành query tùy ý ở persistence adapter.
+        const safeOffset = Number.isSafeInteger(offset)
+            ? Math.max(0, offset)
+            : 0;
         return this.repository.getSellerCatalog(
             shopId,
             ownerUserId,
             SELLER_COPILOT_PRODUCT_LIMIT,
             SELLER_COPILOT_VARIANT_LIMIT,
+            safeOffset,
         );
     }
 }

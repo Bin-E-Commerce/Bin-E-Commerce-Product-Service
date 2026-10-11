@@ -144,9 +144,14 @@ describe('TypeOrmInternalSellerProductCatalogRepository', () => {
             items: [
                 {
                     productId: 'product-1',
+                    isShopLinked: true,
                     name: 'Áo khoác',
                     description: 'Áo khoác thể thao.',
+                    fullDescription: 'Áo khoác thể thao.',
+                    shortDescription: null,
                     thumbnailUrl: 'https://cdn.test/main.jpg',
+                    imageCount: 2,
+                    hasThumbnail: true,
                     status: ProductStatus.ACTIVE,
                     totalSold: 12,
                     availableTotal: 13,

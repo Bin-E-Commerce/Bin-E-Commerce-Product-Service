@@ -28,6 +28,7 @@ export class TypeOrmInternalSellerProductCatalogRepository implements InternalSe
         ownerUserId: string,
         productLimit: number,
         variantLimit: number,
+        offset = 0,
     ): Promise<InternalSellerProductCatalogSnapshot> {
         // Đếm và phân trang trước khi nạp collection: phân trang trên join ảnh/variant làm TypeORM bỏ sót product.
         const [page, totalCount] = await this.productRepository.findAndCount({
@@ -45,6 +46,7 @@ export class TypeOrmInternalSellerProductCatalogRepository implements InternalSe
                 },
             ],
             order: { updatedAt: 'DESC', id: 'ASC' },
+            skip: offset,
             take: productLimit,
         });
         const pageIds = page.map((product) => product.id);
@@ -109,12 +111,19 @@ export class TypeOrmInternalSellerProductCatalogRepository implements InternalSe
 
                 return {
                     productId: product.id,
+                    isShopLinked: product.sellerShopId === shopId,
                     name: product.name,
+                    shortDescription: product.shortDescription,
+                    fullDescription: product.description,
                     description:
                         product.shortDescription?.trim() ||
                         product.description?.trim().slice(0, 400) ||
                         null,
                     thumbnailUrl: productThumbnail,
+                    imageCount: product.images.length,
+                    hasThumbnail: product.images.some(
+                        (image) => image.isThumbnail,
+                    ),
                     status: product.status,
                     totalSold: product.totalSold,
                     // Tổng lấy từ mọi variant ACTIVE trước khi cắt payload, để số tổng không bị thấp giả khi danh sách bị giới hạn.

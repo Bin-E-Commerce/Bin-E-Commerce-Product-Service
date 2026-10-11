@@ -42,6 +42,7 @@ describe('InternalSellerProductCatalogService', () => {
             ownerUserId,
             20,
             240,
+            0,
         );
         expect(mockRepository.getSellerCatalog).toHaveBeenCalledTimes(1);
     });

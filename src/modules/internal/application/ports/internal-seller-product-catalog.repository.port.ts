@@ -13,5 +13,6 @@ export interface InternalSellerProductCatalogRepositoryPort {
         ownerUserId: string,
         productLimit: number,
         variantLimit: number,
+        offset?: number,
     ): Promise<InternalSellerProductCatalogSnapshot>;
 }

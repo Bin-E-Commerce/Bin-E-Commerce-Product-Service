@@ -23,8 +23,13 @@ export interface InternalSellerProductCatalogVariant {
 
 export interface InternalSellerProductCatalogItem {
     productId: string;
+    isShopLinked: boolean;
     name: string;
     description: string | null;
+    fullDescription?: string | null;
+    shortDescription?: string | null;
+    imageCount?: number;
+    hasThumbnail?: boolean;
     thumbnailUrl: string | null;
     status: string;
     totalSold: number;
