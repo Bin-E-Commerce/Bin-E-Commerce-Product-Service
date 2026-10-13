@@ -314,13 +314,13 @@ export class StorefrontProductsService {
             isAnonymous: review.isAnonymous ?? false,
             reviewerName: review.isAnonymous
                 ? null
-                : (review.reviewerName ??
-                  reviewerProfiles.get(review.userId ?? '')?.name ??
+                : (reviewerProfiles.get(review.userId ?? '')?.name ??
+                  review.reviewerName ??
                   null),
             reviewerAvatarUrl: review.isAnonymous
                 ? null
-                : (review.reviewerAvatarUrl ??
-                  reviewerProfiles.get(review.userId ?? '')?.avatarUrl ??
+                : (reviewerProfiles.get(review.userId ?? '')?.avatarUrl ??
+                  review.reviewerAvatarUrl ??
                   null),
             variantName: review.variant?.name ?? null,
             likeCount: likeCountByReview.get(review.id) ?? 0,

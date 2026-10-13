@@ -171,10 +171,10 @@ export class SellerProductsService {
                 isAnonymous: review.isAnonymous ?? false,
                 reviewerName: review.isAnonymous
                     ? null
-                    : (review.reviewerName ?? profile?.name ?? null),
+                    : (profile?.name ?? review.reviewerName ?? null),
                 reviewerAvatarUrl: review.isAnonymous
                     ? null
-                    : (review.reviewerAvatarUrl ?? profile?.avatarUrl ?? null),
+                    : (profile?.avatarUrl ?? review.reviewerAvatarUrl ?? null),
                 likeCount: likeCountByReview.get(review.id) ?? 0,
             };
         });

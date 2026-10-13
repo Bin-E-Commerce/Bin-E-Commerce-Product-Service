@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 export interface ReviewerPublicProfile {
-    keycloakId: string;
+    userId: string;
     name: string;
     avatarUrl: string | null;
 }
@@ -26,7 +26,7 @@ export class ReviewerProfileClient {
         this.internalToken = config.get<string>('INTERNAL_SERVICE_TOKEN', '');
     }
 
-    // Lay profile theo batch de mot product detail khong tao N request theo so review.
+    // Lấy hồ sơ theo batch bằng local user.id để khớp identity được lưu trong review.
     async getPublicProfiles(
         userIds: string[],
     ): Promise<Map<string, ReviewerPublicProfile>> {
@@ -48,7 +48,7 @@ export class ReviewerProfileClient {
             const body = (await response.json()) as ReviewerProfilesResponse;
             return new Map(
                 (body.data ?? []).map((profile) => [
-                    profile.keycloakId,
+                    profile.userId,
                     profile,
                 ]),
             );
