@@ -232,9 +232,9 @@ export class ProductReviewService {
                 .filter((review) => review.orderItemId)
                 .map((review) => [review.orderItemId!, review]),
         );
-        // Cùng một cửa sổ thời gian điều khiển cả CTA review mới và nút chỉnh sửa, tránh hai trạng thái lệch nhau trên UI.
+        // Chỉ COMPLETED mới mở cùng cửa sổ cho review mới và chỉnh sửa; DELIVERED vẫn đang chờ khách xác nhận hoàn tất.
         const reviewWindowOpen =
-            ['DELIVERED', 'COMPLETED'].includes(context.fulfillmentStatus) &&
+            context.fulfillmentStatus === 'COMPLETED' &&
             !context.hasOpenDeliveryIssue &&
             (!context.reviewDeadline ||
                 new Date(context.reviewDeadline) >= new Date());
@@ -271,7 +271,7 @@ export class ProductReviewService {
         };
     }
 
-    // Bảo vệ chung cho create và update: purchase proof phải khớp user, sản phẩm và thời hạn đánh giá.
+    // Bảo vệ chung cho create và update: proof phải khớp user/sản phẩm, đơn COMPLETED, không vướng khiếu nại và còn hạn.
     private assertReviewEligibility(
         proof: ReviewItemProof,
         userId: string,
@@ -282,8 +282,9 @@ export class ProductReviewService {
                 'Bạn chỉ có thể đánh giá sản phẩm đã mua.',
             );
         }
+        // DELIVERED chỉ xác nhận hãng vận chuyển đã giao; không cho gửi hoặc sửa review trước khi khách hoàn tất đơn.
         if (
-            !['DELIVERED', 'COMPLETED'].includes(proof.fulfillmentStatus) ||
+            proof.fulfillmentStatus !== 'COMPLETED' ||
             proof.hasOpenDeliveryIssue
         ) {
             throw new ForbiddenException(

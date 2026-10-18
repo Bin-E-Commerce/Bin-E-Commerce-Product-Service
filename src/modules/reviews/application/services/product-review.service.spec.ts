@@ -128,6 +128,21 @@ describe('ProductReviewService', () => {
         );
     });
 
+    // Không cho tạo review ở DELIVERED vì khách vẫn chưa xác nhận hoàn tất đơn.
+    it('should reject creating a review when the order is only delivered', async () => {
+        // Arrange
+        mockOrderReviewClient.getItemProof.mockResolvedValue(
+            createProof({ fulfillmentStatus: 'DELIVERED' }),
+        );
+
+        // Act & Assert
+        await expect(
+            target.create(userId, productId, createDto()),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(mockReviews.findOne).not.toHaveBeenCalled();
+        expect(mockReviews.save).not.toHaveBeenCalled();
+    });
+
     // Cho phép chủ review cập nhật nội dung trong thời hạn và giữ nguyên identity giao dịch gốc.
     it('should update an owned review within the review window', async () => {
         // Arrange
@@ -307,6 +322,27 @@ describe('ProductReviewService', () => {
         expect(mockReviews.save).not.toHaveBeenCalled();
     });
 
+    // Không cho sửa review cũ trong trạng thái DELIVERED để rule cập nhật khớp rule tạo mới.
+    it('should reject updating a review when the order is only delivered', async () => {
+        // Arrange
+        mockReviews.findOne.mockResolvedValue({
+            id: 'review-1',
+            userId,
+            productId,
+            orderItemId,
+            status: 'approved',
+        } as unknown as ProductReview);
+        mockOrderReviewClient.getItemProof.mockResolvedValue(
+            createProof({ fulfillmentStatus: 'DELIVERED' }),
+        );
+
+        // Act & Assert
+        await expect(
+            target.update(userId, 'review-1', { rating: 4 }),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(mockReviews.save).not.toHaveBeenCalled();
+    });
+
     // Chặn user giả mạo product hoặc purchase proof của tài khoản khác.
     it('should reject a review when purchase proof belongs to another user', async () => {
         // Arrange
@@ -403,6 +439,54 @@ describe('ProductReviewService', () => {
                 }),
             }),
         );
+    });
+
+    // Đơn DELIVERED chưa xuất hiện CTA hay mục review; backend cũng không đánh dấu item đủ quyền.
+    it('should hide review eligibility when the order is only delivered', async () => {
+        // Arrange
+        mockOrderReviewClient.getOrderContext.mockResolvedValue({
+            orderId,
+            ownerId: userId,
+            fulfillmentStatus: 'DELIVERED',
+            deliveredAt: '2026-08-31T10:00:00.000Z',
+            reviewDeadline: '2026-09-30T10:00:00.000Z',
+            deliveryConfirmationStatus: 'PENDING',
+            hasOpenDeliveryIssue: false,
+            items: [
+                {
+                    orderItemId,
+                    productId,
+                    variantId,
+                    productName: 'Áo thể thao',
+                    variantName: 'Đen - XL',
+                    imageUrl: null,
+                },
+            ],
+        });
+        mockReviews.find.mockResolvedValue([]);
+
+        // Act
+        const result = await target.getMine(userId, orderId);
+
+        // Assert
+        expect(result).toEqual({
+            orderId,
+            canReview: false,
+            reviewDeadline: '2026-09-30T10:00:00.000Z',
+            items: [
+                {
+                    orderItemId,
+                    productId,
+                    variantId,
+                    productName: 'Áo thể thao',
+                    variantName: 'Đen - XL',
+                    imageUrl: null,
+                    canReview: false,
+                    canEdit: false,
+                    review: null,
+                },
+            ],
+        });
     });
 
     // Cho phép customer thích review công khai và trả đúng count sau khi lưu.
