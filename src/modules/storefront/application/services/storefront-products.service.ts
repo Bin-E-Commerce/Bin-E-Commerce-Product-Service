@@ -1,5 +1,6 @@
 // Service này đọc product public theo read model storefront và chỉ trả dữ liệu ở trạng thái được phép bán.
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { isUUID } from 'class-validator';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, In, Repository } from 'typeorm';
 import { Product } from '@/database/catalog/entities/product.entity';
@@ -233,13 +234,31 @@ export class StorefrontProductsService {
         };
     }
 
-    // Lấy chi tiết sản phẩm theo UUID cùng toàn bộ quan hệ cần cho màn hình chi tiết.
-    async getStorefrontProductById(
+    // Giữ phương thức UUID cũ cho các caller hiện tại; cùng luồng xử lý bên dưới cũng nhận slug public.
+    getStorefrontProductById(
         id: string,
         userId?: string,
     ): Promise<StorefrontProduct> {
+        return this.getStorefrontProductByIdentifier(id, userId);
+    }
+
+    // Đọc chi tiết public bằng UUID hoặc slug, chỉ trả sản phẩm ACTIVE và giữ nguyên read model hiện có.
+    // Slug là đường dẫn người dùng thấy; UUID vẫn được hỗ trợ cho các link cũ và dữ liệu giỏ hàng.
+    // Nhận diện UUID trước khi tạo điều kiện truy vấn để PostgreSQL không ép slug chữ sang cột UUID.
+    // Dù tìm theo cách nào, phần hydrate quan hệ, lọc review và đồng bộ lượt bán đều dùng chung một luồng.
+    async getStorefrontProductByIdentifier(
+        identifier: string,
+        userId?: string,
+    ): Promise<StorefrontProduct> {
+        // Với UUID, thử cả hai khóa để không làm mất trường hợp slug hợp lệ có hình thức UUID; với slug thường chỉ truy vấn cột text.
+        const where = isUUID(identifier)
+            ? [
+                  { id: identifier, status: ProductStatus.ACTIVE },
+                  { slug: identifier, status: ProductStatus.ACTIVE },
+              ]
+            : { slug: identifier, status: ProductStatus.ACTIVE };
         const product = await this.productRepository.findOne({
-            where: { id, status: ProductStatus.ACTIVE },
+            where,
             // Tách query cho các quan hệ 1-n để tránh tích Descartes giữa variants, options và reviews.
             // Response vẫn giữ nguyên nhưng database chỉ trả từng tập quan hệ độc lập, phù hợp với product có nhiều tập/variant.
             relationLoadStrategy: 'query',

@@ -54,14 +54,14 @@ export class StorefrontProductsController {
         return this.storefrontProductsService.getExternalShopSummary(shopId);
     }
 
-    // Trả chi tiết sản phẩm công khai theo ID; userId tùy chọn giúp response đánh dấu review hiện tại đã liked hay chưa.
-    @Get(':id')
-    getStorefrontProductById(
-        @Param('id', ParseUUIDPipe) id: string,
+    // Trả chi tiết sản phẩm công khai theo UUID hoặc slug; userId chỉ dùng để đánh dấu review hiện tại đã liked hay chưa.
+    @Get(':identifier')
+    getStorefrontProductByIdentifier(
+        @Param('identifier') identifier: string,
         @Headers('x-user-id') userId?: string,
     ): Promise<StorefrontProduct> {
-        return this.storefrontProductsService.getStorefrontProductById(
-            id,
+        return this.storefrontProductsService.getStorefrontProductByIdentifier(
+            identifier,
             userId,
         );
     }
