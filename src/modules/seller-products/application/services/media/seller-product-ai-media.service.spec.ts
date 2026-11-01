@@ -70,6 +70,7 @@ describe('SellerProductAiMediaService', () => {
                 altText: 'Bo do the thao',
                 sortOrder: 0,
                 isThumbnail: true,
+                sourceAssetId: SOURCE_IMAGE_ID,
             }),
             Object.assign(new ProductImage(), {
                 id: 'image-row-2',
