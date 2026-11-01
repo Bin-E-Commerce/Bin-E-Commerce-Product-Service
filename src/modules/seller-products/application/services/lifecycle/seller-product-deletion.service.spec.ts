@@ -3,7 +3,6 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { ProductVariant } from '@/database/catalog/entities/product-variant.entity';
 import { Product } from '@/database/catalog/entities/product.entity';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import type { SellerProductUserContext } from '@/modules/seller-products/application/types/seller-product-user-context.type';
 import { SellerProductDeletionService } from '@/modules/seller-products/application/services/lifecycle/seller-product-deletion.service';
@@ -47,7 +46,6 @@ describe('SellerProductDeletionService', () => {
         const product = Object.assign(new Product(), {
             id: PRODUCT_ID,
             sellerOwnerId: OWNER_ID,
-            originType: ProductOriginType.INTERNAL,
             status: ProductStatus.DRAFT,
             totalSold: 0,
             videoAssetId: 'video-asset-id',
@@ -79,7 +77,6 @@ describe('SellerProductDeletionService', () => {
         const product = Object.assign(new Product(), {
             id: PRODUCT_ID,
             sellerOwnerId: OWNER_ID,
-            originType: ProductOriginType.INTERNAL,
             status: ProductStatus.ACTIVE,
             totalSold: 0,
         });
@@ -98,7 +95,6 @@ describe('SellerProductDeletionService', () => {
         const product = Object.assign(new Product(), {
             id: PRODUCT_ID,
             sellerOwnerId: OWNER_ID,
-            originType: ProductOriginType.INTERNAL,
             status: ProductStatus.INACTIVE,
             totalSold: 1,
         });

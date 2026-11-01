@@ -27,6 +27,8 @@ export class CatalogEventPublisherService
 {
     private readonly logger = new Logger(CatalogEventPublisherService.name);
     private retryTimer?: NodeJS.Timeout;
+    // Chặn poll mới claim thêm lô khi lần gửi Kafka trước vẫn đang xử lý.
+    private dispatching = false;
 
     constructor(
         @InjectRepository(Product)
@@ -166,14 +168,12 @@ export class CatalogEventPublisherService
             aggregateId: product.id,
             data: {
                 productId: product.id,
-                originType: product.originType,
                 name: product.name,
                 slug: product.slug,
                 imageUrl: image,
                 categoryId: product.categoryId,
                 brandId: product.brandId,
                 sellerShopId: product.sellerShopId,
-                externalShopId: product.externalShopId,
                 minPrice: product.minPrice,
                 maxPrice: product.maxPrice,
                 ratingAvg: product.ratingAvg,
@@ -255,14 +255,19 @@ export class CatalogEventPublisherService
         }
     }
 
-    // Bọc polling để lỗi database hoặc Kafka không tạo unhandled rejection trong Nest process.
+    // Giữ tối đa một lô outbox đang gửi; interval mới bỏ qua khi Kafka của lô trước chưa hoàn tất.
+    // Bắt lỗi để polling không tạo unhandled rejection; lease xử lý các hàng PROCESSING nếu process crash.
     private async dispatchPendingSafe(): Promise<void> {
+        if (this.dispatching) return;
+        this.dispatching = true;
         try {
             await this.dispatchPending();
         } catch (error) {
             this.logger.warn(
                 `Catalog outbox dispatch deferred: ${error instanceof Error ? error.message : 'unknown'}`,
             );
+        } finally {
+            this.dispatching = false;
         }
     }
 

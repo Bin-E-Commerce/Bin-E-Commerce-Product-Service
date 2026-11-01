@@ -11,7 +11,6 @@ import {
     Max,
     Min,
 } from 'class-validator';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { StorefrontSort } from '@/database/catalog/enums/storefront-sort.enum';
 
@@ -28,14 +27,6 @@ export class ListStorefrontProductsQueryDto {
     @IsOptional()
     @IsUUID()
     sellerShopId?: string;
-
-    @IsOptional()
-    @IsUUID()
-    externalShopId?: string;
-
-    @IsOptional()
-    @IsEnum(ProductOriginType)
-    originType?: ProductOriginType;
 
     @IsOptional()
     @IsEnum(ProductStatus)

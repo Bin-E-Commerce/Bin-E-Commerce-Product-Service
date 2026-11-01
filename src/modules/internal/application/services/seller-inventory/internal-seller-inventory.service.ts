@@ -10,7 +10,6 @@ import { Brackets, DataSource, Repository } from 'typeorm';
 import { Inventory } from '@/database/inventory/entities/inventory.entity';
 import { Product } from '@/database/catalog/entities/product.entity';
 import { ProductVariant } from '@/database/catalog/entities/product-variant.entity';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
 import { CatalogEventPublisherService } from '@/modules/seller-products/application/services/events/catalog-event-publisher.service';
@@ -127,9 +126,6 @@ export class InternalSellerInventoryService {
             .addSelect('COALESCE(inventory.quantityAvailable, 0)', 'available')
             .addSelect('COALESCE(inventory.quantityReserved, 0)', 'reserved')
             .where('product.sellerShopId = :shopId', { shopId })
-            .andWhere('product.originType = :originType', {
-                originType: ProductOriginType.INTERNAL,
-            })
             .andWhere('product.status != :deleted', {
                 deleted: ProductStatus.DELETED,
             })
@@ -214,9 +210,6 @@ export class InternalSellerInventoryService {
             .andWhere('product.seller_owner_id = :ownerUserId', {
                 ownerUserId: input.ownerUserId,
             })
-            .andWhere('product.origin_type = :originType', {
-                originType: ProductOriginType.INTERNAL,
-            })
             .andWhere('product.status = :productStatus', {
                 productStatus: ProductStatus.ACTIVE,
             })
@@ -290,9 +283,6 @@ export class InternalSellerInventoryService {
             .andWhere('product.seller_owner_id = :ownerUserId', {
                 ownerUserId: input.ownerUserId,
             })
-            .andWhere('product.origin_type = :originType', {
-                originType: ProductOriginType.INTERNAL,
-            })
             .andWhere('product.status = :activeProductStatus', {
                 activeProductStatus: ProductStatus.ACTIVE,
             })
@@ -363,7 +353,6 @@ export class InternalSellerInventoryService {
                         product: {
                             sellerShopId: input.shopId,
                             sellerOwnerId: input.ownerUserId,
-                            originType: ProductOriginType.INTERNAL,
                         },
                         status: ProductVariantStatus.ACTIVE,
                     },
@@ -452,7 +441,6 @@ export class InternalSellerInventoryService {
                         product: {
                             sellerShopId: input.shopId,
                             sellerOwnerId: input.ownerUserId,
-                            originType: ProductOriginType.INTERNAL,
                         },
                         status: ProductVariantStatus.ACTIVE,
                     },

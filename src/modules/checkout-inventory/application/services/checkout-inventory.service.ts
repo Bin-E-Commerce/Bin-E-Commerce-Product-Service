@@ -14,7 +14,6 @@ import { CheckoutReservation } from '@/database/checkout/entities/checkout-reser
 import { CheckoutReservationStatus } from '@/database/checkout/enums/checkout-reservation-status.enum';
 import { Inventory } from '@/database/inventory/entities/inventory.entity';
 import { ProductVariant } from '@/database/catalog/entities/product-variant.entity';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
 import type {
@@ -98,10 +97,7 @@ export class CheckoutInventoryService {
                         'Không tìm thấy variant thuộc sản phẩm đã chọn.',
                     );
                 }
-                if (
-                    variant.product.status !== ProductStatus.ACTIVE ||
-                    variant.product.originType !== ProductOriginType.INTERNAL
-                ) {
+                if (variant.product.status !== ProductStatus.ACTIVE) {
                     throw new UnprocessableEntityException(
                         'Sản phẩm không còn được bán trên hệ thống.',
                     );
@@ -206,7 +202,6 @@ export class CheckoutInventoryService {
                 }
                 if (
                     variant.product.status !== ProductStatus.ACTIVE ||
-                    variant.product.originType !== ProductOriginType.INTERNAL ||
                     variant.status !== ProductVariantStatus.ACTIVE
                 ) {
                     throw new UnprocessableEntityException(

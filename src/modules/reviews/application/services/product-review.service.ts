@@ -101,8 +101,6 @@ export class ProductReviewService {
             images: dto.images ?? [],
             videos: dto.videos ?? [],
             status: 'approved',
-            sourcePlatform: null,
-            externalReviewId: null,
         });
         let savedReview: ProductReview;
         try {

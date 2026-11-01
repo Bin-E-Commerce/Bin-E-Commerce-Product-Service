@@ -12,7 +12,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Product } from '@/database/catalog/entities/product.entity';
 import { ProductImage } from '@/database/catalog/entities/product-image.entity';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import type { SellerProductUserContext } from '@/modules/seller-products/application/types/seller-product-user-context.type';
 import type { AiMediaMutationResponse } from '@/modules/seller-products/application/types/ai-media-response.type';
@@ -24,7 +23,6 @@ type OriginalImageSnapshot = {
     sortOrder: number;
     isThumbnail: boolean;
     variantId?: string | null;
-    externalImageId?: string | null;
     sourceAssetId?: string | null;
     aiAssetId?: string | null;
 };
@@ -75,7 +73,6 @@ export class SellerProductAiMediaService {
                     sortOrder: image.sortOrder,
                     isThumbnail: image.isThumbnail,
                     variantId: image.variantId,
-                    externalImageId: image.externalImageId,
                     sourceAssetId: image.sourceAssetId,
                     aiAssetId: image.aiAssetId,
                 }),
@@ -96,11 +93,7 @@ export class SellerProductAiMediaService {
             }
             const sourceImagesByAssetId = new Map(
                 previousImages.flatMap((image) =>
-                    [
-                        image.sourceAssetId,
-                        image.aiAssetId,
-                        image.externalImageId,
-                    ]
+                    [image.sourceAssetId, image.aiAssetId]
                         .filter((assetId): assetId is string =>
                             Boolean(assetId),
                         )
@@ -121,13 +114,11 @@ export class SellerProductAiMediaService {
                 );
             }
 
-            // Chi cap nhat cac row co sourceAssetId duoc chon; cac anh khac giu nguyen URL, thu tu,
-            // thumbnail, variant va external ID. Day la invariant giup apply AI khong lam mat gallery.
+            // Chi cap nhat anh co asset goc khop payload; cac anh khac giu nguyen de khong mat gallery.
             for (const image of previousImages) {
                 const imageAssetIds = [
                     image.aiAssetId,
                     image.sourceAssetId,
-                    image.externalImageId,
                 ].filter((assetId): assetId is string => Boolean(assetId));
                 const output = imageAssetIds
                     .map((assetId) =>
@@ -141,12 +132,9 @@ export class SellerProductAiMediaService {
                     );
                 if (!output) continue;
                 image.imageUrl = output.imageUrl.trim();
-                // externalImageId giữ asset nguồn để worker có thể đọc lại ảnh này ở lần tối ưu kế tiếp.
+                // Giữ asset gốc qua các lần tối ưu; URL mới chỉ thay asset đang được hiển thị.
                 image.sourceAssetId =
-                    image.sourceAssetId ??
-                    image.externalImageId ??
-                    output.sourceAssetId;
-                image.externalImageId = image.sourceAssetId;
+                    image.sourceAssetId ?? output.sourceAssetId;
                 image.aiAssetId = output.assetId;
             }
             await manager.save(ProductImage, previousImages);
@@ -203,7 +191,6 @@ export class SellerProductAiMediaService {
                         altText: image.altText,
                         sortOrder: image.sortOrder,
                         isThumbnail: image.isThumbnail,
-                        externalImageId: image.externalImageId ?? null,
                         sourceAssetId: image.sourceAssetId ?? null,
                         aiAssetId: image.aiAssetId ?? null,
                     }),
@@ -223,7 +210,7 @@ export class SellerProductAiMediaService {
         });
     }
 
-    //  Lock product va chan product deleted/crawler khong thuoc luong seller noi bo.
+    // Khóa sản phẩm khi cập nhật AI; chỉ chủ sở hữu đã xác thực mới được thao tác và sản phẩm đã xóa bị từ chối.
     private async loadOwnedProduct(
         manager: EntityManager,
         ownerId: string,
@@ -233,7 +220,6 @@ export class SellerProductAiMediaService {
             where: {
                 id: productId,
                 sellerOwnerId: ownerId,
-                originType: ProductOriginType.INTERNAL,
             },
             lock: { mode: 'pessimistic_write' },
         });
@@ -245,14 +231,18 @@ export class SellerProductAiMediaService {
     //  Parse snapshot JSONB theo whitelist field de metadata hong khong lam hong rollback.
     private readSnapshot(value: unknown): OriginalImageSnapshot[] {
         if (!Array.isArray(value)) return [];
-        return value.filter((item): item is OriginalImageSnapshot => {
-            if (!item || typeof item !== 'object') return false;
-            const candidate = item as Record<string, unknown>;
-            return (
-                typeof candidate.imageUrl === 'string' &&
-                typeof candidate.sortOrder === 'number' &&
-                typeof candidate.isThumbnail === 'boolean'
-            );
-        });
+        return value
+            .filter((item): item is OriginalImageSnapshot => {
+                if (!item || typeof item !== 'object') return false;
+                const candidate = item as Record<string, unknown>;
+                return (
+                    typeof candidate.imageUrl === 'string' &&
+                    typeof candidate.sortOrder === 'number' &&
+                    typeof candidate.isThumbnail === 'boolean'
+                );
+            })
+            .map((item) => {
+                return item as OriginalImageSnapshot;
+            });
     }
 }

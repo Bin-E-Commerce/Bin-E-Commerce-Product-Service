@@ -58,15 +58,6 @@ export class ProductImage {
     @Column({ name: 'is_thumbnail', type: 'boolean', default: false })
     isThumbnail: boolean;
 
-    // ID ảnh từ nguồn ngoài nếu crawler có sinh hoặc source trả về.
-    @Column({
-        name: 'external_image_id',
-        type: 'varchar',
-        length: 160,
-        nullable: true,
-    })
-    externalImageId: string | null;
-
     // ID asset gốc được dùng làm nguồn cho mọi lần tối ưu; giá trị này không bị ghi đè bởi output AI.
     @Column({
         name: 'source_asset_id',

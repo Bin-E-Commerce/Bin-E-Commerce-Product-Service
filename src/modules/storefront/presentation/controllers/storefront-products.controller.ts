@@ -11,7 +11,6 @@ import type { PaginatedProductResponse } from '@/modules/shared/application/type
 import { ListStorefrontProductsQueryDto } from '@/modules/storefront/presentation/dto/list-storefront-products-query.dto';
 import { StorefrontProductsService } from '@/modules/storefront/application/services/storefront-products.service';
 import type {
-    PublicExternalShopResponse,
     ShopCatalogSummary,
     StorefrontProduct,
 } from '@/modules/storefront/application/services/storefront-products.service';
@@ -36,22 +35,6 @@ export class StorefrontProductsController {
         @Param('shopId', ParseUUIDPipe) shopId: string,
     ): Promise<ShopCatalogSummary> {
         return this.storefrontProductsService.getShopSummary(shopId);
-    }
-
-    // Đọc shop crawl theo slug nội bộ để customer xem shop và sản phẩm ngay trong Bin E-Commerce.
-    @Get('external-shops/:slug')
-    getExternalShopBySlug(
-        @Param('slug') slug: string,
-    ): Promise<PublicExternalShopResponse> {
-        return this.storefrontProductsService.getExternalShopBySlug(slug);
-    }
-
-    // Trả thống kê catalog của shop crawl theo UUID external_shops, không gọi hoặc redirect tới nền tảng nguồn.
-    @Get('external-shops/:shopId/summary')
-    getExternalShopSummary(
-        @Param('shopId', ParseUUIDPipe) shopId: string,
-    ): Promise<ShopCatalogSummary> {
-        return this.storefrontProductsService.getExternalShopSummary(shopId);
     }
 
     // Trả chi tiết sản phẩm công khai theo UUID hoặc slug; userId chỉ dùng để đánh dấu review hiện tại đã liked hay chưa.

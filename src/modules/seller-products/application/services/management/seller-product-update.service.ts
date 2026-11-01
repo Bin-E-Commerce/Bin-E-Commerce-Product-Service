@@ -23,7 +23,6 @@ import { ProductOption } from '@/database/catalog/entities/product-option.entity
 import { ProductOptionValue } from '@/database/catalog/entities/product-option-value.entity';
 import { ProductVariant } from '@/database/catalog/entities/product-variant.entity';
 import { ProductVariantOptionValue } from '@/database/catalog/entities/product-variant-option-value.entity';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
 import { Inventory } from '@/database/inventory/entities/inventory.entity';
@@ -103,7 +102,6 @@ export class SellerProductUpdateService {
                     id: input.productId,
                     sellerShopId: input.shopId,
                     sellerOwnerId: input.currentUser.userId,
-                    originType: ProductOriginType.INTERNAL,
                 },
                 lock: { mode: 'pessimistic_write' },
             });
@@ -167,7 +165,6 @@ export class SellerProductUpdateService {
             where: {
                 id: productId,
                 sellerOwnerId: currentUser.userId,
-                originType: ProductOriginType.INTERNAL,
             },
         });
         if (!existing || existing.status === ProductStatus.DELETED) {
@@ -320,7 +317,6 @@ export class SellerProductUpdateService {
             where: {
                 id: productId,
                 sellerOwnerId: ownerId,
-                originType: ProductOriginType.INTERNAL,
             },
             lock: { mode: 'pessimistic_write' },
         });
@@ -367,8 +363,6 @@ export class SellerProductUpdateService {
                     sortOrder: image.sortOrder,
                     isThumbnail: image.isThumbnail,
                     // Giữ lineage nếu seller không thay URL; output AI không bị biến thành source mới ngoài ý muốn.
-                    externalImageId:
-                        previous?.externalImageId ?? parsedSourceAssetId,
                     sourceAssetId,
                     aiAssetId: previous?.aiAssetId ?? null,
                 });
@@ -602,7 +596,6 @@ export class SellerProductUpdateService {
             ).toFixed(3);
             entity.status = ProductVariantStatus.ACTIVE;
             entity.imageUrl = input.imageUrl?.trim() || null;
-            entity.externalVariantId = variant?.externalVariantId ?? null;
             const savedVariant = await manager.save(ProductVariant, entity);
 
             const inventory =

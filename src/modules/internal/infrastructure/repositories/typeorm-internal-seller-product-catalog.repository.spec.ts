@@ -1,7 +1,6 @@
 // Kiểm tra mapping catalog và giới hạn payload bằng repository giả; không cần database hoặc service nội bộ thật.
 import { Product } from '@/database/catalog/entities/product.entity';
 import { IsNull, Not } from 'typeorm';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
 import { TypeOrmInternalSellerProductCatalogRepository } from '@/modules/internal/infrastructure/repositories/typeorm-internal-seller-product-catalog.repository';
@@ -27,7 +26,6 @@ describe('TypeOrmInternalSellerProductCatalogRepository', () => {
         const product = {
             id: 'product-1',
             sellerShopId: 'shop-1',
-            originType: ProductOriginType.INTERNAL,
             status: ProductStatus.ACTIVE,
             name: 'Áo khoác',
             shortDescription: null,
@@ -109,13 +107,11 @@ describe('TypeOrmInternalSellerProductCatalogRepository', () => {
                 where: [
                     {
                         sellerShopId: 'shop-1',
-                        originType: ProductOriginType.INTERNAL,
                         status: Not(ProductStatus.DELETED),
                     },
                     {
                         sellerShopId: IsNull(),
                         sellerOwnerId: 'owner-1',
-                        originType: ProductOriginType.INTERNAL,
                         status: Not(ProductStatus.DELETED),
                     },
                 ],

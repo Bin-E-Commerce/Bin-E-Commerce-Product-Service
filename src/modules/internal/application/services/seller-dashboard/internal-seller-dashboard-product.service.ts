@@ -6,7 +6,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from '@/database/catalog/entities/product.entity';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
 import type { InternalSellerDashboardProductSnapshot } from '@/modules/internal/application/types/internal-seller-dashboard-product.type';
 
@@ -81,9 +80,6 @@ export class InternalSellerDashboardProductService {
                     : 'product.seller_shop_id = :shopId',
                 { shopId, ...(ownerUserId ? { ownerUserId } : {}) },
             )
-            .andWhere('product.origin_type = :originType', {
-                originType: ProductOriginType.INTERNAL,
-            })
             .leftJoin('product.variants', 'variant')
             .leftJoin('variant.inventory', 'inventory')
             .setParameters({

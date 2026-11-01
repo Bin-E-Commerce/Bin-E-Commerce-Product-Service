@@ -4,7 +4,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Product } from '@/database/catalog/entities/product.entity';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import type { SellerProductUserContext } from '@/modules/seller-products/application/types/seller-product-user-context.type';
 import { SellerShopClient } from '@/modules/seller-products/application/clients/seller-shop.client';
@@ -66,7 +65,6 @@ describe('SellerProductStatusService', () => {
         const product = Object.assign(new Product(), {
             id: PRODUCT_ID,
             sellerOwnerId: OWNER_ID,
-            originType: ProductOriginType.INTERNAL,
             sellerShopId: '1c7a2a31-dc56-4eb1-83f5-a2dce6fd0001',
             status: ProductStatus.INACTIVE,
             updatedAt: new Date('2026-08-23T08:00:00.000Z'),
@@ -101,7 +99,6 @@ describe('SellerProductStatusService', () => {
         const product = Object.assign(new Product(), {
             id: PRODUCT_ID,
             sellerOwnerId: OWNER_ID,
-            originType: ProductOriginType.INTERNAL,
             status: ProductStatus.ACTIVE,
             name: 'Sản phẩm vận hành',
             totalSold: 4,
@@ -131,7 +128,6 @@ describe('SellerProductStatusService', () => {
             id: PRODUCT_ID,
             sellerOwnerId: OWNER_ID,
             sellerShopId: '1c7a2a31-dc56-4eb1-83f5-a2dce6fd0001',
-            originType: ProductOriginType.INTERNAL,
             status: ProductStatus.INACTIVE,
         });
         mockManager.findOne.mockResolvedValue(product);
@@ -161,7 +157,6 @@ describe('SellerProductStatusService', () => {
         const product = Object.assign(new Product(), {
             id: PRODUCT_ID,
             sellerOwnerId: OWNER_ID,
-            originType: ProductOriginType.INTERNAL,
             status: ProductStatus.ACTIVE,
             updatedAt: new Date('2026-08-23T08:00:00.000Z'),
         });
@@ -184,7 +179,6 @@ describe('SellerProductStatusService', () => {
         const product = Object.assign(new Product(), {
             id: PRODUCT_ID,
             sellerOwnerId: OWNER_ID,
-            originType: ProductOriginType.INTERNAL,
             status: ProductStatus.DRAFT,
         });
         mockManager.findOne.mockResolvedValue(product);

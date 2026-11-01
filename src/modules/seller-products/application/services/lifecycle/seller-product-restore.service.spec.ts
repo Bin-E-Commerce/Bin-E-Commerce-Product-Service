@@ -2,7 +2,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { Product } from '@/database/catalog/entities/product.entity';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import type { SellerProductUserContext } from '@/modules/seller-products/application/types/seller-product-user-context.type';
 import { SellerProductRestoreService } from '@/modules/seller-products/application/services/lifecycle/seller-product-restore.service';
@@ -45,7 +44,6 @@ describe('SellerProductRestoreService', () => {
         const product = Object.assign(new Product(), {
             id: PRODUCT_ID,
             sellerOwnerId: OWNER_ID,
-            originType: ProductOriginType.INTERNAL,
             status: ProductStatus.DELETED,
             deletedAt: new Date('2026-08-22T12:00:00.000Z'),
             deletedBy: OWNER_ID,
@@ -85,7 +83,6 @@ describe('SellerProductRestoreService', () => {
         const product = Object.assign(new Product(), {
             id: PRODUCT_ID,
             sellerOwnerId: OWNER_ID,
-            originType: ProductOriginType.INTERNAL,
             status: ProductStatus.INACTIVE,
         });
         mockManager.findOne.mockResolvedValue(product);

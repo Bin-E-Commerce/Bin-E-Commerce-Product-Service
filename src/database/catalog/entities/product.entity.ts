@@ -12,10 +12,8 @@ import {
     UpdateDateColumn,
 } from 'typeorm';
 import { ProductCondition } from '@/database/catalog/enums/product-condition.enum';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { Brand } from '@/database/catalog/entities/brand.entity';
-import { ExternalShop } from '@/database/catalog/entities/external-shop.entity';
 import { ProductImage } from '@/database/catalog/entities/product-image.entity';
 import { ProductVariant } from '@/database/catalog/entities/product-variant.entity';
 import { ProductOption } from '@/database/catalog/entities/product-option.entity';
@@ -26,31 +24,13 @@ import { ProductReview } from '@/database/reviews/entities/product-review.entity
 @Index(['slug'], { unique: true })
 @Index(['categoryId'])
 @Index(['sellerShopId'])
-@Index('IDX_products_public_shop_catalog', [
-    'sellerShopId',
-    'status',
-    'originType',
-])
+@Index('IDX_products_public_shop_catalog', ['sellerShopId', 'status'])
 @Index(['sellerOwnerId'])
 @Index(['sellerOwnerId', 'status', 'deletedAt'])
-@Index(['externalShopId'])
-@Index(['sourcePlatform', 'externalProductId'], {
-    unique: true,
-    where: 'source_platform IS NOT NULL AND external_product_id IS NOT NULL',
-})
 export class Product {
     // ID nội bộ của sản phẩm trong product-service.
     @PrimaryGeneratedColumn('uuid')
     id: string;
-
-    // Phân biệt product do seller nội bộ tạo hay product crawl từ nguồn ngoài.
-    @Column({
-        name: 'origin_type',
-        type: 'enum',
-        enum: ProductOriginType,
-        default: ProductOriginType.INTERNAL,
-    })
-    originType: ProductOriginType;
 
     // ID shop thật trong seller-service; chỉ lưu ID logic vì product-service không FK cross-database.
     @Column({ name: 'seller_shop_id', type: 'uuid', nullable: true })
@@ -60,18 +40,6 @@ export class Product {
     // Product Service lưu bản sao ID logic để kiểm tra ownership mà không cần gọi đồng bộ sang seller-service cho mỗi request.
     @Column({ name: 'seller_owner_id', type: 'uuid', nullable: true })
     sellerOwnerId: string | null;
-
-    // ID shop nguồn trong bảng external_shops; dùng cho product crawl từ Tiki/Shopee/Lazada.
-    @Column({ name: 'external_shop_id', type: 'uuid', nullable: true })
-    externalShopId: string | null;
-
-    // Quan hệ nội bộ đến shop nguồn để đọc product import kèm thông tin shop crawl.
-    @ManyToOne(() => ExternalShop, (shop) => shop.products, {
-        nullable: true,
-        onDelete: 'SET NULL',
-    })
-    @JoinColumn({ name: 'external_shop_id' })
-    externalShop: ExternalShop | null;
 
     // ID category nội bộ từ catalog-service; không tạo thêm category từ Tiki khi import.
     @Column({ name: 'category_id', type: 'uuid' })
@@ -261,29 +229,7 @@ export class Product {
     @Column({ name: 'ai_optimized_at', type: 'timestamptz', nullable: true })
     aiOptimizedAt: Date | null;
 
-    // Nền tảng nguồn nếu là product crawl.
-    @Column({
-        name: 'source_platform',
-        type: 'varchar',
-        length: 40,
-        nullable: true,
-    })
-    sourcePlatform: string | null;
-
-    // ID sản phẩm trên nguồn ngoài, dùng chống trùng khi crawler chạy lại.
-    @Column({
-        name: 'external_product_id',
-        type: 'varchar',
-        length: 120,
-        nullable: true,
-    })
-    externalProductId: string | null;
-
-    // URL sản phẩm gốc trên nền tảng nguồn.
-    @Column({ name: 'source_url', type: 'text', nullable: true })
-    sourceUrl: string | null;
-
-    // Metadata phụ của nguồn crawl hoặc admin workflow.
+    // Metadata phụ của admin workflow và các tính năng seller.
     @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
     metadata: Record<string, unknown>;
 
@@ -303,7 +249,7 @@ export class Product {
     @OneToMany(() => ProductAttributeValue, (value) => value.product)
     attributeValues: ProductAttributeValue[];
 
-    // Review crawl hoặc review nội bộ sau này.
+    // Review nội bộ gắn với product.
     @OneToMany(() => ProductReview, (review) => review.product)
     reviews: ProductReview[];
 

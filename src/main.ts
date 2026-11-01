@@ -10,7 +10,6 @@ import { AppModule } from '@/app.module';
 import { buildHelmetOptions } from '@/common/config/helmet.config';
 import { setupHttpObservability } from '@common/observability/http-observability';
 
-// Khởi động Product Service, nơi quản lý product, variant, ảnh và shop nguồn crawl.
 // Khởi động product boundary và đăng ký validation, security cùng telemetry.
 async function bootstrap(): Promise<void> {
     const app = await NestFactory.create(AppModule, {
@@ -41,9 +40,7 @@ async function bootstrap(): Promise<void> {
     if (isDev) {
         const documentConfig = new DocumentBuilder()
             .setTitle('Product Service')
-            .setDescription(
-                'Product, variant, image, brand and external shop APIs',
-            )
+            .setDescription('Seller products, variants, images, and brands')
             .setVersion('1.0')
             .build();
         SwaggerModule.setup(

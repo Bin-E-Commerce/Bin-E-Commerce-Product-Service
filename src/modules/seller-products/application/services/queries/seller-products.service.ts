@@ -10,7 +10,6 @@ import { Product } from '@/database/catalog/entities/product.entity';
 import { ProductReview } from '@/database/reviews/entities/product-review.entity';
 import { ProductReviewLike } from '@/database/reviews/entities/product-review-like.entity';
 import { ListSellerProductsQueryDto } from '@/modules/seller-products/presentation/dto/queries/list-seller-products-query.dto';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { SellerProductSortBy } from '@/database/catalog/enums/seller-product-sort.enum';
 import { ReviewerProfileClient } from '@/modules/reviews/application/clients/reviewer-profile.client';
@@ -109,7 +108,6 @@ export class SellerProductsService {
             where: {
                 id: productId,
                 sellerOwnerId: ownerId,
-                originType: ProductOriginType.INTERNAL,
             },
             relations: {
                 brand: true,
@@ -214,17 +212,14 @@ export class SellerProductsService {
     }
 
     // Tạo điều kiện ownership dùng chung cho count, filter và pagination.
-    // Chỉ sản phẩm INTERNAL mới thuộc Seller Center; sản phẩm crawl EXTERNAL không được trộn vào shop thật.
+    // Mọi sản phẩm trong bảng này thuộc seller; owner ID là biên dữ liệu duy nhất của Seller Center.
     private createOwnedProductsQuery(
         sellerOwnerId: string,
         includeDeleted = false,
     ): SelectQueryBuilder<Product> {
         const queryBuilder = this.productRepository
             .createQueryBuilder('product')
-            .where('product.sellerOwnerId = :sellerOwnerId', { sellerOwnerId })
-            .andWhere('product.originType = :originType', {
-                originType: ProductOriginType.INTERNAL,
-            });
+            .where('product.sellerOwnerId = :sellerOwnerId', { sellerOwnerId });
 
         if (!includeDeleted) {
             queryBuilder.andWhere('product.status != :deletedStatus', {

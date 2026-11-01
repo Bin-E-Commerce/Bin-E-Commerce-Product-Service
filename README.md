@@ -1,9 +1,9 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/Bin-E-Commerce/Bin-E-Commerce-UI-Web/main/public/images/logo/logo_background_white.png" alt="Bin E-Commerce" width="220" />
 
-  # Product Service
+# Product Service
 
-  Give customers trustworthy products to discover, sellers a controlled catalog to manage, and checkout an authoritative stock source.
+Give customers trustworthy products to discover, sellers a controlled catalog to manage, and checkout an authoritative stock source.
 
   <p>
     <img src="https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white" alt="NestJS 11" />
@@ -14,7 +14,7 @@
     <img src="https://img.shields.io/badge/Helmet-安全-4B5563" alt="Helmet security headers" />
   </p>
 
-  [Portfolio](https://daongocanh.site)
+[Portfolio](https://daongocanh.site)
 </div>
 
 ---
@@ -57,24 +57,24 @@ Product Service is the boundary for product aggregates and the operations that d
 
 ## 2. Service at a glance
 
-| Property | Value |
-| --- | --- |
-| Runtime | Node.js with NestJS 11 |
-| Language | TypeScript |
-| Default HTTP port | 3008 |
-| HTTP prefix | /api |
-| URI version | /v1 |
-| Database | PostgreSQL |
-| ORM | TypeORM |
-| Event integration | Kafka producer and catalog event outbox |
-| Security middleware | Helmet |
-| Health endpoint | GET /api/v1/health |
-| API documentation | GET /docs outside production |
+| Property               | Value                                    |
+| ---------------------- | ---------------------------------------- |
+| Runtime                | Node.js with NestJS 11                   |
+| Language               | TypeScript                               |
+| Default HTTP port      | 3008                                     |
+| HTTP prefix            | /api                                     |
+| URI version            | /v1                                      |
+| Database               | PostgreSQL                               |
+| ORM                    | TypeORM                                  |
+| Event integration      | Kafka producer and catalog event outbox  |
+| Security middleware    | Helmet                                   |
+| Health endpoint        | GET /api/v1/health                       |
+| API documentation      | GET /docs outside production             |
 | Database schema policy | Migrations only; synchronize is disabled |
 
 ### What this service provides
 
-- public product listing, detail, shop summary, and external-shop reads;
+- public seller product listing, detail, and shop summary;
 - seller-owned product creation and management;
 - product variants, options, attributes, images, videos, and package data;
 - product status transitions and soft deletion;
@@ -103,30 +103,30 @@ Product Service is the boundary for product aggregates and the operations that d
 
 ### Product Service owns
 
-| Area | Responsibility |
-| --- | --- |
-| Product aggregate | Product identity, content, status, source, prices, ratings, and references |
-| Variants | SKU, variant options, variant price, and variant-level availability |
-| Product options | Groups such as color, size, and capacity |
-| Product media references | Image and video references owned by Media Service |
-| Inventory | Available, reserved, sold, and low-stock quantities |
-| Checkout reservations | Reservation ledger and compensation state |
-| Reviews | Review content, publication state, purchase proof reference, and likes |
-| Catalog integration | Validated category references and downstream catalog events |
-| Seller access | Ownership and permission checks for seller product operations |
+| Area                     | Responsibility                                                             |
+| ------------------------ | -------------------------------------------------------------------------- |
+| Product aggregate        | Product identity, content, status, source, prices, ratings, and references |
+| Variants                 | SKU, variant options, variant price, and variant-level availability        |
+| Product options          | Groups such as color, size, and capacity                                   |
+| Product media references | Image and video references owned by Media Service                          |
+| Inventory                | Available, reserved, sold, and low-stock quantities                        |
+| Checkout reservations    | Reservation ledger and compensation state                                  |
+| Reviews                  | Review content, publication state, purchase proof reference, and likes     |
+| Catalog integration      | Validated category references and downstream catalog events                |
+| Seller access            | Ownership and permission checks for seller product operations              |
 
 ### Other services own
 
-| Area | Owner | Product Service interaction |
-| --- | --- | --- |
-| Identity and permissions | Auth Service / API Gateway | Receives trusted user context |
-| Categories and attributes | Catalog Service | Validates category and attribute references |
-| Shop ownership/profile | Seller Service | Resolves seller shop and shipping readiness |
-| Files and CDN assets | Media Service | Upload, cleanup, and AI-media integration |
-| Order purchase proof | Order Service | Confirms review eligibility |
-| Order orchestration | Order Service | Calls quote, reserve, and release |
-| Shipping rules | Shipping Service | Product stores package dimensions for integration |
-| Recommendations | Recommendation Service | Consumes catalog snapshots/events |
+| Area                      | Owner                      | Product Service interaction                       |
+| ------------------------- | -------------------------- | ------------------------------------------------- |
+| Identity and permissions  | Auth Service / API Gateway | Receives trusted user context                     |
+| Categories and attributes | Catalog Service            | Validates category and attribute references       |
+| Shop ownership/profile    | Seller Service             | Resolves seller shop and shipping readiness       |
+| Files and CDN assets      | Media Service              | Upload, cleanup, and AI-media integration         |
+| Order purchase proof      | Order Service              | Confirms review eligibility                       |
+| Order orchestration       | Order Service              | Calls quote, reserve, and release                 |
+| Shipping rules            | Shipping Service           | Product stores package dimensions for integration |
+| Recommendations           | Recommendation Service     | Consumes catalog snapshots/events                 |
 
 The service stores cross-service IDs as logical references. It does not create foreign keys into another service's database.
 
@@ -151,15 +151,15 @@ The service uses a global ValidationPipe with whitelist and forbidNonWhitelisted
 <details>
 <summary><b>What can each caller change?</b></summary>
 
-| Caller | Allowed surface |
-| --- | --- |
-| Anonymous/customer storefront | Public product reads and public review reads |
-| Authenticated customer | Create/update eligible reviews, like or unlike public reviews |
-| Seller | Manage products owned by the current seller |
-| Order Service | Quote, reserve, and release inventory through internal routes |
-| Seller Service | Read the minimum product count needed for shop rules |
-| Recommendation workflows | Read a paginated catalog snapshot |
-| Catalog integration | Receive product changes through catalog events |
+| Caller                        | Allowed surface                                               |
+| ----------------------------- | ------------------------------------------------------------- |
+| Anonymous/customer storefront | Public product reads and public review reads                  |
+| Authenticated customer        | Create/update eligible reviews, like or unlike public reviews |
+| Seller                        | Manage products owned by the current seller                   |
+| Order Service                 | Quote, reserve, and release inventory through internal routes |
+| Seller Service                | Read the minimum product count needed for shop rules          |
+| Recommendation workflows      | Read a paginated catalog snapshot                             |
+| Catalog integration           | Receive product changes through catalog events                |
 
 The exact permissions are enforced by the application services and shared authorization contracts. Controllers should remain transport adapters and must not become a second authorization implementation.
 
@@ -171,50 +171,50 @@ The exact permissions are enforced by the application services and shared author
 
 ### Start the service
 
-~~~powershell
+```powershell
 cd services/product-service
 Copy-Item .env.example .env
 npm install
 npm run dev
-~~~
+```
 
 ### Check health
 
-~~~powershell
+```powershell
 curl http://localhost:3008/api/v1/health
-~~~
+```
 
 Expected shape:
 
-~~~json
+```json
 {
-  "status": "ok",
-  "service": "product-service",
-  "environment": "development",
-  "checks": {
-    "http": { "status": "ok" },
-    "postgres": {
-      "status": "up",
-      "type": "postgres"
-    },
-    "memory": {
-      "status": "ok"
+    "status": "ok",
+    "service": "product-service",
+    "environment": "development",
+    "checks": {
+        "http": { "status": "ok" },
+        "postgres": {
+            "status": "up",
+            "type": "postgres"
+        },
+        "memory": {
+            "status": "ok"
+        }
     }
-  }
 }
-~~~
+```
 
 ### Read the public catalog
 
-~~~powershell
+```powershell
 curl "http://localhost:3008/api/v1/products?page=1&pageSize=20"
-~~~
+```
 
 ### Read one product
 
-~~~powershell
+```powershell
 curl "http://localhost:3008/api/v1/products/{productId}"
-~~~
+```
 
 Seller and internal operations require the headers and internal credentials supplied by API Gateway or the calling service. For a full checkout test, call quote, reserve, then release with the same reservation key and confirm the second request is idempotent.
 
@@ -235,17 +235,17 @@ Seller and internal operations require the headers and internal credentials supp
 
 From the repository root:
 
-~~~bash
+```bash
 npm install
-~~~
+```
 
 Or use the package manager and lockfile already selected by the repository.
 
 ### Create local configuration
 
-~~~powershell
+```powershell
 Copy-Item .env.example .env
-~~~
+```
 
 Set PostgreSQL credentials and local service URLs before starting the process. The service runs migrations automatically on startup, but TypeORM synchronize is deliberately disabled.
 
@@ -254,19 +254,19 @@ Set PostgreSQL credentials and local service URLs before starting the process. T
 
 ### Production build
 
-~~~bash
+```bash
 npm run type-check
 npm run lint
 npm test -- --runInBand
 npm run build
 npm run start
-~~~
+```
 
 ---
 
 ## 7. Architecture
 
-~~~text
+```text
 +-------------------+       public HTTP       +-------------------------+
 | Web application   | ----------------------> |                         |
 | API Gateway       |                          |  Product Service        |
@@ -287,11 +287,11 @@ npm run start
                          +------------------+---------------+----------------+
                          v                  v                                v
                   Catalog projection  Recommendation       Other consumers
-~~~
+```
 
 ### Request boundaries
 
-~~~text
+```text
 Storefront request
   -> public query DTO validation
   -> active/visible product query
@@ -312,7 +312,7 @@ Checkout reservation
   -> reservation ledger
   -> inventory update in transaction
   -> deterministic response for retry
-~~~
+```
 
 ### Layering
 
@@ -366,14 +366,9 @@ The product status enum is the source for storefront visibility and seller lifec
 
 Soft deletion keeps lifecycle history and allows a permitted seller to restore a product to the appropriate inactive state. A deleted product is not treated as a normal public listing.
 
-### Internal and external origin
+### Seller-owned product catalog
 
-Product origin distinguishes:
-
-- products created and managed by Bin E-Commerce sellers;
-- products imported from external shops or platforms.
-
-External shop records and source identifiers prevent crawler re-runs from creating duplicate products. Product Service does not redirect customers to the original platform as part of the public product contract.
+Product Service stores products created and managed by Bin E-Commerce sellers. The public catalog, cart, and recommendation flows use the seller shop as the product ownership boundary.
 
 ---
 
@@ -426,21 +421,21 @@ catalogRevision increases monotonically for catalog snapshots, including availab
 
 Inventory is stored per product variant:
 
-| Field | Meaning |
-| --- | --- |
-| quantityAvailable | Units currently available for sale |
-| quantityReserved | Units held by active checkout operations |
-| quantitySold | Units completed as sold |
-| lowStockThreshold | Seller alert threshold |
-| updatedAt | Last inventory update |
+| Field             | Meaning                                  |
+| ----------------- | ---------------------------------------- |
+| quantityAvailable | Units currently available for sale       |
+| quantityReserved  | Units held by active checkout operations |
+| quantitySold      | Units completed as sold                  |
+| lowStockThreshold | Seller alert threshold                   |
+| updatedAt         | Last inventory update                    |
 
 ### Internal endpoints
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| POST | /api/v1/internal/checkout/quote | Revalidate and return checkout-relevant values without reserving |
-| POST | /api/v1/internal/checkout/reserve | Validate and reserve stock before order creation |
-| POST | /api/v1/internal/checkout/release | Compensate a reservation when order persistence fails |
+| Method | Route                             | Purpose                                                          |
+| ------ | --------------------------------- | ---------------------------------------------------------------- |
+| POST   | /api/v1/internal/checkout/quote   | Revalidate and return checkout-relevant values without reserving |
+| POST   | /api/v1/internal/checkout/reserve | Validate and reserve stock before order creation                 |
+| POST   | /api/v1/internal/checkout/release | Compensate a reservation when order persistence fails            |
 
 All three routes are protected by InternalServiceGuard.
 
@@ -458,14 +453,14 @@ The unique reservation key is the retry boundary. A repeated reserve request ret
 
 ### Checkout sequence
 
-~~~text
+```text
 Cart / Order Service
   -> quote current product and package values
   -> reserve using a stable reservation key
   -> create the order snapshot
   -> release if order persistence fails
   -> continue with order and payment workflow
-~~~
+```
 
 Order Service owns order orchestration and snapshots. Product Service owns the consistency of price, availability, and reservation state at the time of the call.
 
@@ -518,7 +513,7 @@ A catalog snapshot contains the minimum fields needed by downstream consumers:
 
 - product ID, name, slug, and image;
 - category and brand references;
-- seller and external-shop references;
+- seller shop reference;
 - price range and rating data;
 - review count and total sold;
 - status and stock availability;
@@ -531,9 +526,9 @@ Sensitive owner, payment, and internal persistence fields are not part of the sn
 
 ### Snapshot endpoint
 
-~~~text
+```text
 GET /api/v1/internal/products/catalog-snapshot?page=1&pageSize=100
-~~~
+```
 
 The endpoint is internal and paginated. It can be used for a controlled backfill instead of loading the whole catalog into memory.
 
@@ -551,56 +546,54 @@ All routes are below /api/v1 when URI versioning is enabled.
 
 ### Storefront
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| GET | /products | Public product listing with query filters and pagination |
-| GET | /products/:id | Public product detail by UUID |
-| GET | /products/shops/:shopId/summary | Public summary for an internal seller shop |
-| GET | /products/external-shops/:slug | Public external-shop page and catalog information |
-| GET | /products/external-shops/:shopId/summary | Summary for an external shop UUID |
-| GET | /brands | Brand listing |
+| Method | Route                           | Purpose                                                  |
+| ------ | ------------------------------- | -------------------------------------------------------- |
+| GET    | /products                       | Public product listing with query filters and pagination |
+| GET    | /products/:id                   | Public product detail by UUID                            |
+| GET    | /products/shops/:shopId/summary | Public summary for an internal seller shop               |
+| GET    | /brands                         | Brand listing                                            |
 
 ### Seller products
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| POST | /seller/products | Create an owned product graph |
-| GET | /seller/products | List products owned by the current seller |
-| GET | /seller/products/:productId | Read one owned product |
-| PUT | /seller/products/:productId | Update the owned product graph |
-| DELETE | /seller/products/:productId | Soft-delete an owned product |
-| POST | /seller/products/:productId/restore | Restore a soft-deleted product |
-| PATCH | /seller/products/:productId/status | Change ACTIVE or INACTIVE lifecycle state |
-| POST | /seller/products/:productId/ai-media/apply | Apply an authorized AI media result |
-| POST | /seller/products/:productId/ai-media/rollback | Roll back an applied AI media result |
+| Method | Route                                         | Purpose                                   |
+| ------ | --------------------------------------------- | ----------------------------------------- |
+| POST   | /seller/products                              | Create an owned product graph             |
+| GET    | /seller/products                              | List products owned by the current seller |
+| GET    | /seller/products/:productId                   | Read one owned product                    |
+| PUT    | /seller/products/:productId                   | Update the owned product graph            |
+| DELETE | /seller/products/:productId                   | Soft-delete an owned product              |
+| POST   | /seller/products/:productId/restore           | Restore a soft-deleted product            |
+| PATCH  | /seller/products/:productId/status            | Change ACTIVE or INACTIVE lifecycle state |
+| POST   | /seller/products/:productId/ai-media/apply    | Apply an authorized AI media result       |
+| POST   | /seller/products/:productId/ai-media/rollback | Roll back an applied AI media result      |
 
 ### Reviews
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| POST | /products/:productId/reviews | Create a product review |
-| PATCH | /products/reviews/:reviewId | Update the current user's review |
-| GET | /reviews/me?orderId=... | Read the current user's review state |
-| PUT | /reviews/:reviewId/like | Like a public review |
-| DELETE | /reviews/:reviewId/like | Remove a review like |
-| POST | /products/reviews/media/cleanup | Clean up unused uploaded review media |
+| Method | Route                           | Purpose                               |
+| ------ | ------------------------------- | ------------------------------------- |
+| POST   | /products/:productId/reviews    | Create a product review               |
+| PATCH  | /products/reviews/:reviewId     | Update the current user's review      |
+| GET    | /reviews/me?orderId=...         | Read the current user's review state  |
+| PUT    | /reviews/:reviewId/like         | Like a public review                  |
+| DELETE | /reviews/:reviewId/like         | Remove a review like                  |
+| POST   | /products/reviews/media/cleanup | Clean up unused uploaded review media |
 
 ### Internal
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| POST | /internal/checkout/quote | Quote product and availability |
-| POST | /internal/checkout/reserve | Reserve inventory |
-| POST | /internal/checkout/release | Release inventory |
-| GET | /internal/products/shops/:shopId/active-count | Return active owned product count |
-| GET | /internal/products/catalog-snapshot | Return a paginated catalog snapshot |
+| Method | Route                                         | Purpose                             |
+| ------ | --------------------------------------------- | ----------------------------------- |
+| POST   | /internal/checkout/quote                      | Quote product and availability      |
+| POST   | /internal/checkout/reserve                    | Reserve inventory                   |
+| POST   | /internal/checkout/release                    | Release inventory                   |
+| GET    | /internal/products/shops/:shopId/active-count | Return active owned product count   |
+| GET    | /internal/products/catalog-snapshot           | Return a paginated catalog snapshot |
 
 ### Health and documentation
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| GET | /health | Report HTTP, PostgreSQL, and process health |
-| GET | /docs | Swagger UI outside production |
+| Method | Route   | Purpose                                     |
+| ------ | ------- | ------------------------------------------- |
+| GET    | /health | Report HTTP, PostgreSQL, and process health |
+| GET    | /docs   | Swagger UI outside production               |
 
 Route-level DTO validation rejects unexpected fields and invalid UUIDs. Internal routes require the internal service guard.
 
@@ -608,7 +601,7 @@ Route-level DTO validation rejects unexpected fields and invalid UUIDs. Internal
 
 ## 14. Project structure
 
-~~~text
+```text
 services/product-service/
 +-- src/
 |   +-- main.ts
@@ -653,7 +646,7 @@ services/product-service/
 +-- package.json
 +-- tsconfig.json
 +-- README.md
-~~~
+```
 
 ### Module responsibilities
 
@@ -671,25 +664,25 @@ services/product-service/
 
 Use [.env.example](./.env.example) as the canonical local template.
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| NODE_ENV | No | development or production behavior |
-| PORT | No | HTTP port, default 3008 |
-| APP_VERSION | No | Version returned by health |
-| TYPEORM_LOGGING | No | Enable TypeORM logging when true |
-| POSTGRES_HOST | Yes | PostgreSQL host |
-| POSTGRES_PORT | No | PostgreSQL port, default 5432 |
-| POSTGRES_USER | Yes | PostgreSQL user |
-| POSTGRES_PASSWORD | Yes | PostgreSQL password |
-| POSTGRES_DB | Yes | Product database name |
-| INTERNAL_SERVICE_TOKEN | Yes for internal routes | Shared service-to-service credential |
-| ORDER_SERVICE_URL | Yes for review and checkout integration | Order Service base URL |
-| AUTH_SERVICE_URL | Yes for identity integration | Auth Service base URL |
-| SELLER_SERVICE_URL | Yes for seller validation | Seller Service base URL |
-| CATALOG_SERVICE_URL | Yes for category validation | Catalog Service base URL |
-| MEDIA_SERVICE_URL | Yes for media workflows | Media Service base URL |
-| KAFKA_BROKERS | Yes for events | Comma-separated broker addresses |
-| KAFKA_CLIENT_ID | No | Kafka producer client ID |
+| Variable               | Required                                | Purpose                              |
+| ---------------------- | --------------------------------------- | ------------------------------------ |
+| NODE_ENV               | No                                      | development or production behavior   |
+| PORT                   | No                                      | HTTP port, default 3008              |
+| APP_VERSION            | No                                      | Version returned by health           |
+| TYPEORM_LOGGING        | No                                      | Enable TypeORM logging when true     |
+| POSTGRES_HOST          | Yes                                     | PostgreSQL host                      |
+| POSTGRES_PORT          | No                                      | PostgreSQL port, default 5432        |
+| POSTGRES_USER          | Yes                                     | PostgreSQL user                      |
+| POSTGRES_PASSWORD      | Yes                                     | PostgreSQL password                  |
+| POSTGRES_DB            | Yes                                     | Product database name                |
+| INTERNAL_SERVICE_TOKEN | Yes for internal routes                 | Shared service-to-service credential |
+| ORDER_SERVICE_URL      | Yes for review and checkout integration | Order Service base URL               |
+| AUTH_SERVICE_URL       | Yes for identity integration            | Auth Service base URL                |
+| SELLER_SERVICE_URL     | Yes for seller validation               | Seller Service base URL              |
+| CATALOG_SERVICE_URL    | Yes for category validation             | Catalog Service base URL             |
+| MEDIA_SERVICE_URL      | Yes for media workflows                 | Media Service base URL               |
+| KAFKA_BROKERS          | Yes for events                          | Comma-separated broker addresses     |
+| KAFKA_CLIENT_ID        | No                                      | Kafka producer client ID             |
 
 ### Configuration rules
 
@@ -706,14 +699,14 @@ Use [.env.example](./.env.example) as the canonical local template.
 
 ### Commands
 
-~~~bash
+```bash
 npm run dev
 npm run type-check
 npm run lint
 npm test
 npm run build
 npm run start
-~~~
+```
 
 ### Development sequence
 
@@ -733,9 +726,9 @@ npm run start
 
 When NODE_ENV is not production:
 
-~~~text
+```text
 http://localhost:3008/docs
-~~~
+```
 
 Swagger documents the HTTP boundary. Shared Kafka event contracts and internal payloads remain the source of truth for service-to-service integration.
 
@@ -797,12 +790,12 @@ The existing test structure covers important application rules, including:
 
 ### Recommended commands
 
-~~~bash
+```bash
 npm run type-check
 npm run lint
 npm test -- --runInBand
 npm run build
-~~~
+```
 
 ---
 

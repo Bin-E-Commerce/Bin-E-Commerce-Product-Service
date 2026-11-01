@@ -30,10 +30,6 @@ import { ProductVariantOptionValue } from '@/database/catalog/entities/product-v
     unique: true,
     where: 'seller_sku IS NOT NULL',
 })
-@Index(['productId', 'externalVariantId'], {
-    unique: true,
-    where: 'external_variant_id IS NOT NULL',
-})
 export class ProductVariant {
     // ID nội bộ của variant/SKU.
     @PrimaryGeneratedColumn('uuid')
@@ -108,15 +104,6 @@ export class ProductVariant {
     // Ảnh đại diện riêng của variant nếu có.
     @Column({ name: 'image_url', type: 'text', nullable: true })
     imageUrl: string | null;
-
-    // ID variant từ nguồn ngoài, dùng chống trùng trong phạm vi product khi crawl lại.
-    @Column({
-        name: 'external_variant_id',
-        type: 'varchar',
-        length: 160,
-        nullable: true,
-    })
-    externalVariantId: string | null;
 
     // Ảnh gắn riêng với variant này.
     @OneToMany(() => ProductImage, (image) => image.variant)

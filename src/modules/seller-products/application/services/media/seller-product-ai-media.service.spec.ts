@@ -7,7 +7,6 @@ import { ConflictException } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { Product } from '@/database/catalog/entities/product.entity';
 import { ProductImage } from '@/database/catalog/entities/product-image.entity';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import type { SellerProductUserContext } from '@/modules/seller-products/application/types/seller-product-user-context.type';
 import { SellerProductAiMediaService } from '@/modules/seller-products/application/services/media/seller-product-ai-media.service';
@@ -15,7 +14,6 @@ import { SellerProductAiMediaService } from '@/modules/seller-products/applicati
 const PRODUCT_ID = '6d89a4f8-2f4e-4a98-9d7d-e7c3c5c7a101';
 const OWNER_ID = 'c6d2f3c8-4ae7-4c74-9d39-63e2f9af9e02';
 const SOURCE_IMAGE_ID = '50d41f74-624d-4553-8e4a-e18dd9e77289';
-const OTHER_IMAGE_ID = '13aaaec3-f892-41ce-990c-c17343107290';
 
 // Kiem tra aggregate product sau apply van giu nguyen cac image row khong duoc chon.
 describe('SellerProductAiMediaService', () => {
@@ -58,7 +56,6 @@ describe('SellerProductAiMediaService', () => {
         const product = Object.assign(new Product(), {
             id: PRODUCT_ID,
             sellerOwnerId: OWNER_ID,
-            originType: ProductOriginType.INTERNAL,
             status: ProductStatus.DRAFT,
             name: 'Bo do the thao',
             updatedAt: new Date('2026-08-28T10:00:00.000Z'),
@@ -73,7 +70,6 @@ describe('SellerProductAiMediaService', () => {
                 altText: 'Bo do the thao',
                 sortOrder: 0,
                 isThumbnail: true,
-                externalImageId: SOURCE_IMAGE_ID,
             }),
             Object.assign(new ProductImage(), {
                 id: 'image-row-2',
@@ -83,7 +79,6 @@ describe('SellerProductAiMediaService', () => {
                 altText: 'Bo do the thao',
                 sortOrder: 1,
                 isThumbnail: false,
-                externalImageId: OTHER_IMAGE_ID,
             }),
         ];
         mockManager.findOne.mockResolvedValue(product);
@@ -103,12 +98,11 @@ describe('SellerProductAiMediaService', () => {
             ],
         });
 
-        // Assert: chi URL va external ID cua anh duoc chon thay doi; anh con lai va thu tu van con nguyen.
+        // Assert: chỉ ảnh được chọn thay đổi; ảnh còn lại và thứ tự gallery vẫn nguyên vẹn.
         expect(result.status).toBe('APPLIED');
         expect(images[0]!.imageUrl).toBe(
             'https://cdn.example.com/optimized-cover.webp',
         );
-        expect(images[0]!.externalImageId).toBe(SOURCE_IMAGE_ID);
         expect(images[0]!.sourceAssetId).toBe(SOURCE_IMAGE_ID);
         expect(images[0]!.aiAssetId).toBe(
             'a9bbf36e-53fd-4986-a909-0ba27ca0c6aa',
@@ -116,7 +110,6 @@ describe('SellerProductAiMediaService', () => {
         expect(images[1]!.imageUrl).toBe(
             'https://cdn.example.com/original-back.webp',
         );
-        expect(images[1]!.externalImageId).toBe(OTHER_IMAGE_ID);
         expect(images).toHaveLength(2);
         expect(mockManager.save).toHaveBeenCalledWith(ProductImage, images);
 
@@ -148,7 +141,6 @@ describe('SellerProductAiMediaService', () => {
         const product = Object.assign(new Product(), {
             id: PRODUCT_ID,
             sellerOwnerId: OWNER_ID,
-            originType: ProductOriginType.INTERNAL,
             status: ProductStatus.DRAFT,
             updatedAt: new Date('2026-08-28T10:00:00.000Z'),
             metadata: {},

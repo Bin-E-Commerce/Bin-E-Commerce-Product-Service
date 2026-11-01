@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { Product } from '@/database/catalog/entities/product.entity';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import type { RestoreProductResponse } from '@/modules/seller-products/application/types/restore-product-response.type';
 import type { SellerProductUserContext } from '@/modules/seller-products/application/types/seller-product-user-context.type';
@@ -62,7 +61,6 @@ export class SellerProductRestoreService {
             where: {
                 id: productId,
                 sellerOwnerId: ownerId,
-                originType: ProductOriginType.INTERNAL,
             },
             lock: { mode: 'pessimistic_write' },
         });

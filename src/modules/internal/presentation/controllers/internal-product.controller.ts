@@ -19,7 +19,6 @@ import { createHash } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from '@/database/catalog/entities/product.entity';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
 import { InternalServiceGuard } from '@/modules/checkout-inventory/presentation/guards/internal-service.guard';
@@ -56,7 +55,6 @@ export class InternalProductController {
         const activeProductCount = await this.productRepository.count({
             where: {
                 sellerShopId: shopId,
-                originType: ProductOriginType.INTERNAL,
                 status: ProductStatus.ACTIVE,
             },
         });
@@ -203,7 +201,6 @@ export class InternalProductController {
             .leftJoinAndSelect('product.images', 'image')
             .select([
                 'product.id',
-                'product.originType',
                 'product.status',
                 'product.sellerShopId',
                 'product.sellerOwnerId',
@@ -235,7 +232,6 @@ export class InternalProductController {
 
         return {
             id: product.id,
-            originType: product.originType,
             status: product.status,
             sellerShopId: product.sellerShopId,
             sellerOwnerId: product.sellerOwnerId,
@@ -355,14 +351,12 @@ export class InternalProductController {
             )[0]?.imageUrl ?? null;
         return {
             id: product.id,
-            originType: product.originType,
             name: product.name,
             slug: product.slug,
             imageUrl,
             categoryId: product.categoryId,
             brandId: product.brandId,
             sellerShopId: product.sellerShopId,
-            externalShopId: product.externalShopId,
             minPrice: product.minPrice,
             maxPrice: product.maxPrice,
             ratingAvg: product.ratingAvg,

@@ -7,7 +7,6 @@ import {
 import { DataSource, EntityManager } from 'typeorm';
 import { ProductVariant } from '@/database/catalog/entities/product-variant.entity';
 import { Product } from '@/database/catalog/entities/product.entity';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import type { DeleteProductResponse } from '@/modules/seller-products/application/types/delete-product-response.type';
 import type { SellerProductUserContext } from '@/modules/seller-products/application/types/seller-product-user-context.type';
@@ -93,7 +92,6 @@ export class SellerProductDeletionService {
             where: {
                 id: productId,
                 sellerOwnerId: ownerId,
-                originType: ProductOriginType.INTERNAL,
             },
             lock: { mode: 'pessimistic_write' },
         });

@@ -1,11 +1,10 @@
 // Repository TypeORM dựng catalog nội bộ từ product/variant/inventory; chỉ trả snapshot thuộc shop được yêu cầu.
-// Query lọc mọi sản phẩm INTERNAL chưa xóa theo shop hoặc owner đã xác thực; ảnh lấy từ biến thể/thumbnail catalog.
+// Query lọc sản phẩm chưa xóa theo shop hoặc owner đã xác thực; ảnh lấy từ biến thể/thumbnail catalog.
 
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, Repository } from 'typeorm';
 import { Product } from '@/database/catalog/entities/product.entity';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
 import type { InternalSellerProductCatalogRepositoryPort } from '@/modules/internal/application/ports/internal-seller-product-catalog.repository.port';
@@ -22,7 +21,8 @@ export class TypeOrmInternalSellerProductCatalogRepository implements InternalSe
         private readonly productRepository: Repository<Product>,
     ) {}
 
-    // Nạp payload có giới hạn; OR theo owner chỉ khôi phục record legacy thiếu seller_shop_id, còn origin/status vẫn khóa tập hợp.
+    // Nạp payload có giới hạn; OR theo owner chỉ khôi phục record legacy thiếu seller_shop_id.
+    // Cả hai nhánh đều giữ tenant boundary để owner không đọc được sản phẩm shop khác.
     async getSellerCatalog(
         shopId: string,
         ownerUserId: string,
@@ -35,13 +35,11 @@ export class TypeOrmInternalSellerProductCatalogRepository implements InternalSe
             where: [
                 {
                     sellerShopId: shopId,
-                    originType: ProductOriginType.INTERNAL,
                     status: Not(ProductStatus.DELETED),
                 },
                 {
                     sellerShopId: IsNull(),
                     sellerOwnerId: ownerUserId,
-                    originType: ProductOriginType.INTERNAL,
                     status: Not(ProductStatus.DELETED),
                 },
             ],
@@ -54,20 +52,18 @@ export class TypeOrmInternalSellerProductCatalogRepository implements InternalSe
             return { items: [], totalCount, hasMore: totalCount > 0 };
         }
 
-        // Nạp relation chỉ cho ID đã phân trang, áp lại tenant/status/origin để không mở rộng phạm vi đọc.
+        // Nạp relation chỉ cho ID đã phân trang và áp lại tenant/status để không mở rộng phạm vi đọc.
         const loadedProducts = await this.productRepository.find({
             where: [
                 {
                     id: In(pageIds),
                     sellerShopId: shopId,
-                    originType: ProductOriginType.INTERNAL,
                     status: Not(ProductStatus.DELETED),
                 },
                 {
                     id: In(pageIds),
                     sellerShopId: IsNull(),
                     sellerOwnerId: ownerUserId,
-                    originType: ProductOriginType.INTERNAL,
                     status: Not(ProductStatus.DELETED),
                 },
             ],

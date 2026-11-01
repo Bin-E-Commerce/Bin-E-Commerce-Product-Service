@@ -25,7 +25,6 @@ import { ProductVariantOptionValue } from '@/database/catalog/entities/product-v
 import { ProductVariant } from '@/database/catalog/entities/product-variant.entity';
 import { Product } from '@/database/catalog/entities/product.entity';
 import { CreateSellerProductDto } from '@/modules/seller-products/presentation/dto/create-product/create-seller-product.dto';
-import { ProductOriginType } from '@/database/catalog/enums/product-origin-type.enum';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
 import { CatalogClient } from '@/modules/seller-products/application/clients/catalog.client';
@@ -36,7 +35,6 @@ import type { SellerProductUserContext } from '@/modules/seller-products/applica
 import { ProductIdentifierService } from '@/modules/seller-products/application/services/identity/product-identifier.service';
 import { SellerProductValidatorService } from '@/modules/seller-products/application/services/validation/seller-product-validator.service';
 import { CatalogEventPublisherService } from '@/modules/seller-products/application/services/events/catalog-event-publisher.service';
-import { Optional } from '@nestjs/common';
 
 @Injectable()
 export class SellerProductCreationService {
@@ -48,8 +46,7 @@ export class SellerProductCreationService {
         private readonly sellerShopClient: SellerShopClient,
         private readonly identifier: ProductIdentifierService,
         private readonly validator: SellerProductValidatorService,
-        @Optional()
-        private readonly catalogEvents?: CatalogEventPublisherService,
+        private readonly catalogEvents: CatalogEventPublisherService,
     ) {}
 
     // Xác minh dữ liệu cross-service trước, sau đó ghi toàn bộ product graph trong một transaction PostgreSQL.
@@ -81,10 +78,8 @@ export class SellerProductCreationService {
                 async (manager) => {
                     const product = await manager.save(
                         manager.create(Product, {
-                            originType: ProductOriginType.INTERNAL,
                             sellerShopId: shopProfile.shop.id,
                             sellerOwnerId: currentUser.userId,
-                            externalShopId: null,
                             categoryId: dto.categoryId,
                             brandId: brand?.id ?? null,
                             name: dto.name.trim(),
@@ -116,9 +111,6 @@ export class SellerProductCreationService {
                             ratingAvg: null,
                             reviewCount: 0,
                             viewCount: 0,
-                            sourcePlatform: null,
-                            externalProductId: null,
-                            sourceUrl: null,
                             metadata: {
                                 categoryName: catalogContext.category.name,
                                 categoryPath: catalogContext.category.path,
@@ -137,11 +129,6 @@ export class SellerProductCreationService {
                                     image.altText?.trim() || dto.name.trim(),
                                 sortOrder: image.sortOrder,
                                 isThumbnail: image.isThumbnail,
-                                externalImageId:
-                                    parseProductMediaReference(
-                                        image.imageUrl,
-                                        'product_image',
-                                    )?.assetId ?? null,
                                 sourceAssetId:
                                     parseProductMediaReference(
                                         image.imageUrl,
@@ -171,7 +158,8 @@ export class SellerProductCreationService {
                         catalogContext.attributes,
                     );
 
-                    await this.catalogEvents?.publish(
+                    // Outbox commit cùng product để crash giữa chừng không làm mất sự kiện đồng bộ catalog.
+                    await this.catalogEvents.publish(
                         product.id,
                         CatalogEventPublisherService.topics.upserted,
                         manager,
@@ -289,7 +277,6 @@ export class SellerProductCreationService {
                     weight: (dto.package.weightGrams / 1_000).toFixed(3),
                     status: ProductVariantStatus.ACTIVE,
                     imageUrl: variant.imageUrl?.trim() || null,
-                    externalVariantId: null,
                 });
             }),
         );

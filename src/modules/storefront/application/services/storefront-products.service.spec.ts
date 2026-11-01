@@ -5,7 +5,6 @@
 import { type DeepMocked, createMock } from '@golevelup/ts-jest';
 import { Repository } from 'typeorm';
 import { Product } from '@/database/catalog/entities/product.entity';
-import { ExternalShop } from '@/database/catalog/entities/external-shop.entity';
 import { ProductVariant } from '@/database/catalog/entities/product-variant.entity';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
@@ -18,7 +17,6 @@ import { StorefrontProductsService } from '@/modules/storefront/application/serv
 describe('StorefrontProductsService', () => {
     let target: StorefrontProductsService;
     let mockProductRepository: DeepMocked<Repository<Product>>;
-    let mockExternalShopRepository: DeepMocked<Repository<ExternalShop>>;
     let mockProductVariantRepository: DeepMocked<Repository<ProductVariant>>;
     let mockReviewLikeRepository: DeepMocked<Repository<ProductReviewLike>>;
     let mockReviewRepository: DeepMocked<Repository<ProductReview>>;
@@ -39,7 +37,6 @@ describe('StorefrontProductsService', () => {
 
     beforeEach(() => {
         mockProductRepository = createMock<Repository<Product>>();
-        mockExternalShopRepository = createMock<Repository<ExternalShop>>();
         mockProductVariantRepository = createMock<Repository<ProductVariant>>();
         mockReviewLikeRepository = createMock<Repository<ProductReviewLike>>();
         mockReviewRepository = createMock<Repository<ProductReview>>();
@@ -47,7 +44,6 @@ describe('StorefrontProductsService', () => {
         mockOrderSalesClient = createMock<OrderSalesClient>();
         target = new StorefrontProductsService(
             mockProductRepository,
-            mockExternalShopRepository,
             mockProductVariantRepository,
             mockReviewLikeRepository,
             mockReviewRepository,
