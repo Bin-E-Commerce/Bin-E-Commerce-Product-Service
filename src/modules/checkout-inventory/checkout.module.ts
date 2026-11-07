@@ -10,6 +10,7 @@ import { Product } from '@/database/catalog/entities/product.entity';
 import { ProductVariant } from '@/database/catalog/entities/product-variant.entity';
 import { CatalogEventPublisherService } from '@/modules/seller-products/application/services/events/catalog-event-publisher.service';
 import { CatalogEventOutboxEntity } from '@/database/integration/entities/catalog-event-outbox.entity';
+import { SellerShopClient } from '@/modules/seller-products/application/clients/seller-shop.client';
 
 // ProductModule import module này để expose internal endpoint cùng database transaction hiện tại.
 @Module({
@@ -26,6 +27,7 @@ import { CatalogEventOutboxEntity } from '@/database/integration/entities/catalo
         CheckoutInventoryService,
         InternalServiceGuard,
         CatalogEventPublisherService,
+        SellerShopClient,
     ],
     exports: [InternalServiceGuard, CatalogEventPublisherService],
 })

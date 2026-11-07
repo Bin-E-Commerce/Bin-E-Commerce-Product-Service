@@ -127,4 +127,39 @@ export class SellerShopClient {
             });
         }
     }
+
+    // Gọi Seller Service trước checkout để shop khóa vì công nợ không thể nhận đơn mới.
+    async assertShopsCanSell(shopIds: string[]): Promise<void> {
+        const uniqueShopIds = [...new Set(shopIds)].filter(Boolean);
+        // Reservation không chứa shop thì không cần gọi Seller Service; caller tiếp tục kiểm tra variant trong transaction.
+        if (uniqueShopIds.length === 0) return;
+
+        const query = new URLSearchParams({ shopIds: uniqueShopIds.join(',') });
+        const response = await fetch(
+            `${this.sellerServiceUrl}/api/v1/internal/seller/shops/sales-readiness?${query.toString()}`,
+            {
+                headers: {
+                    'x-internal-service-token': this.internalServiceToken,
+                },
+                signal: AbortSignal.timeout(5_000),
+            },
+        ).catch(() => {
+            throw new BadGatewayException(
+                'Không thể xác minh trạng thái shop trước khi đặt hàng.',
+            );
+        });
+        if (!response.ok)
+            throw new BadGatewayException(
+                'Seller Service chưa thể xác minh shop trước khi đặt hàng.',
+            );
+        const readiness = (await response.json()) as {
+            inactiveShopIds?: string[];
+        };
+
+        // Một shop dừng bán thì từ chối toàn bộ reservation để không giữ tồn kho một phần của giỏ hàng.
+        if ((readiness.inactiveShopIds?.length ?? uniqueShopIds.length) > 0)
+            throw new ForbiddenException(
+                'Shop đang tạm ngưng nhận đơn do công nợ cần thanh toán.',
+            );
+    }
 }

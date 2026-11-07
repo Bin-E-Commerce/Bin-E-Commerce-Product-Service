@@ -4,6 +4,7 @@
 
 import {
     ConflictException,
+    ForbiddenException,
     Injectable,
     NotFoundException,
     Optional,
@@ -25,6 +26,7 @@ import type {
     CheckoutSnapshotItem,
 } from '@/modules/checkout-inventory/application/types/checkout-response.type';
 import { CatalogEventPublisherService } from '@/modules/seller-products/application/services/events/catalog-event-publisher.service';
+import { SellerShopClient } from '@/modules/seller-products/application/clients/seller-shop.client';
 
 // Giữ hoặc trả inventory atomically; Product Service không mở transaction xuyên database với Order.
 @Injectable()
@@ -33,12 +35,31 @@ export class CheckoutInventoryService {
         private readonly dataSource: DataSource,
         @Optional()
         private readonly catalogEvents?: CatalogEventPublisherService,
+        private readonly sellerShopClient?: SellerShopClient,
     ) {}
 
     // Revalidate tất cả dòng, lock inventory, giảm available và trả snapshot authoritative trong một transaction.
     async reserve(
         dto: ReserveCheckoutDto,
     ): Promise<CheckoutReservationResponse> {
+        const previousReservation = await this.dataSource
+            .getRepository(CheckoutReservation)
+            .findOne({ where: { reservationKey: dto.reservationKey } });
+        // Replay cùng reservationKey phải trả đúng snapshot đã lưu trước khi xét trạng thái shop mới.
+        if (previousReservation) {
+            if (
+                previousReservation.status ===
+                CheckoutReservationStatus.RELEASED
+            )
+                throw new ConflictException(
+                    'Reservation đã được release và không thể reserve lại.',
+                );
+            return previousReservation.response as unknown as CheckoutReservationResponse;
+        }
+        // Chặn shop đã bị tạm ngưng trước transaction dài để không giữ inventory lock trong lúc gọi service khác.
+        await this.assertSellerShopsCanSell(
+            dto.items.map((item) => item.variantId),
+        );
         const result = await this.dataSource.transaction(async (manager) => {
             // Advisory lock tuần tự hóa request đầu tiên cùng key trước khi insert unique reservation.
             await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
@@ -181,6 +202,10 @@ export class CheckoutInventoryService {
 
     // Đọc snapshot authoritative cho quote mà không giữ hoặc thay đổi tồn kho.
     async quote(dto: ReserveCheckoutDto): Promise<CheckoutReservationResponse> {
+        // Quote cũng kiểm tra cùng readiness để giao diện không báo có thể mua shop đang bị khóa tài chính.
+        await this.assertSellerShopsCanSell(
+            dto.items.map((item) => item.variantId),
+        );
         return this.dataSource.transaction(async (manager) => {
             const variantIds = [
                 ...new Set(dto.items.map((item) => item.variantId)),
@@ -246,6 +271,29 @@ export class CheckoutInventoryService {
             }
             return { reservationKey: dto.reservationKey, items: snapshots };
         });
+    }
+
+    // Resolve shopId từ variant trong Product DB rồi kiểm tra Seller Service; không tin shop ID do checkout caller gửi lên.
+    private async assertSellerShopsCanSell(
+        variantIds: string[],
+    ): Promise<void> {
+        // Unit test có thể dựng service độc lập; CheckoutModule luôn bind client cho mọi request production.
+        if (!this.sellerShopClient) return;
+        const variants = await this.dataSource
+            .getRepository(ProductVariant)
+            .find({
+                where: { id: In([...new Set(variantIds)]) },
+                relations: { product: true },
+            });
+        // Sản phẩm chưa gắn shop không có trạng thái bán đáng tin cậy nên checkout phải dừng fail-closed.
+        if (variants.some((variant) => !variant.product.sellerShopId))
+            throw new ForbiddenException(
+                'Sản phẩm chưa gắn với shop đang hoạt động.',
+            );
+        const shopIds = variants.map(
+            (variant) => variant.product.sellerShopId as string,
+        );
+        await this.sellerShopClient.assertShopsCanSell(shopIds);
     }
 
     // Trả lại lượng reserved khi Order Service không thể commit order sau bước reserve.
