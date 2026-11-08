@@ -28,12 +28,9 @@ describe('CheckoutInventoryService', () => {
                 .fn()
                 .mockResolvedValue({ status: 'RESERVED', response: expected }),
         };
-        const manager = {
-            query: jest.fn(),
-            getRepository: jest.fn().mockReturnValue(reservationRepository),
-        };
-        mockDataSource.transaction.mockImplementation(async (callback: any) =>
-            callback(manager),
+        // Replay được trả từ repository gốc trước transaction nên mock đúng boundary để không reserve lần hai.
+        mockDataSource.getRepository.mockReturnValue(
+            reservationRepository as never,
         );
 
         // Act
@@ -50,8 +47,10 @@ describe('CheckoutInventoryService', () => {
 
         // Assert
         expect(result).toEqual(expected);
-        expect(manager.getRepository).toHaveBeenCalledWith(CheckoutReservation);
-        expect(manager.getRepository).toHaveBeenCalledTimes(1);
+        expect(mockDataSource.getRepository).toHaveBeenCalledWith(
+            CheckoutReservation,
+        );
+        expect(mockDataSource.transaction).not.toHaveBeenCalled();
     });
 
     it('should return success without changing inventory for a repeated release', async () => {
