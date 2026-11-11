@@ -38,7 +38,8 @@ export class CheckoutInventoryService {
         private readonly sellerShopClient?: SellerShopClient,
     ) {}
 
-    // Revalidate tất cả dòng, lock inventory, giảm available và trả snapshot authoritative trong một transaction.
+    // Revalidate dòng hàng, lock inventory, giảm available và trả cả category/brand snapshot tại thời điểm mua.
+    // Reservation replay trả nguyên snapshot đã lưu để Order không nhận metadata catalog mới sau lần reserve đầu.
     async reserve(
         dto: ReserveCheckoutDto,
     ): Promise<CheckoutReservationResponse> {
@@ -162,6 +163,7 @@ export class CheckoutInventoryService {
                     productId: variant.productId,
                     variantId: variant.id,
                     categoryId: variant.product.categoryId,
+                    brandId: variant.product.brandId ?? null,
                     sellerShopId: variant.product.sellerShopId,
                     sellerOwnerId: variant.product.sellerOwnerId,
                     sku: variant.sku,
@@ -200,7 +202,7 @@ export class CheckoutInventoryService {
         return result.response;
     }
 
-    // Đọc snapshot authoritative cho quote mà không giữ hoặc thay đổi tồn kho.
+    // Đọc snapshot authoritative gồm category/brand mà không giữ hoặc thay đổi tồn kho.
     async quote(dto: ReserveCheckoutDto): Promise<CheckoutReservationResponse> {
         // Quote cũng kiểm tra cùng readiness để giao diện không báo có thể mua shop đang bị khóa tài chính.
         await this.assertSellerShopsCanSell(
@@ -252,6 +254,7 @@ export class CheckoutInventoryService {
                     productId: variant.productId,
                     variantId: variant.id,
                     categoryId: variant.product.categoryId,
+                    brandId: variant.product.brandId ?? null,
                     sellerShopId: variant.product.sellerShopId,
                     sellerOwnerId: variant.product.sellerOwnerId,
                     sku: variant.sku,

@@ -10,6 +10,7 @@ export interface CheckoutSnapshotItem {
     productId: string;
     variantId: string;
     categoryId: string | null;
+    brandId: string | null;
     sellerShopId: string | null;
     sellerOwnerId: string | null;
     sku: string;
