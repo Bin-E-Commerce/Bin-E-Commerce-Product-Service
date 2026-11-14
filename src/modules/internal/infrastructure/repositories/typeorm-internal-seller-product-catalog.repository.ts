@@ -49,7 +49,8 @@ export class TypeOrmInternalSellerProductCatalogRepository implements InternalSe
         });
         const pageIds = page.map((product) => product.id);
         if (!pageIds.length) {
-            return { items: [], totalCount, hasMore: totalCount > 0 };
+            // Offset đã chạm/vượt tổng số dòng thì trang rỗng là kết thúc, không lặp hasMore vô hạn.
+            return { items: [], totalCount, hasMore: offset < totalCount };
         }
 
         // Nạp relation chỉ cho ID đã phân trang và áp lại tenant/status để không mở rộng phạm vi đọc.
@@ -184,7 +185,8 @@ export class TypeOrmInternalSellerProductCatalogRepository implements InternalSe
         return {
             items,
             totalCount,
-            hasMore: totalCount > items.length,
+            // So sánh với vị trí cuối trang, không so tổng shop với riêng số dòng của trang hiện tại.
+            hasMore: offset + items.length < totalCount,
         };
     }
 }

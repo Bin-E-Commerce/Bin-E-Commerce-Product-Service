@@ -386,6 +386,14 @@ export class InternalSellerInventoryService {
                     'Tổng tồn kho vượt giới hạn hệ thống hỗ trợ.',
                 );
             }
+            // Xác nhận lặp với target đã đạt không cần ghi DB hoặc phát lại catalog event.
+            if (input.nextAvailable === inventory.quantityAvailable) {
+                return {
+                    variantId: variant.id,
+                    available: inventory.quantityAvailable,
+                    reserved: inventory.quantityReserved,
+                };
+            }
 
             // stockQuantity là tổng vật lý; phần đang được giữ cho đơn phải được cộng lại, không bị thao tác seller xóa.
             inventory.quantityAvailable = input.nextAvailable;
@@ -458,6 +466,10 @@ export class InternalSellerInventoryService {
                 throw new ConflictException(
                     'Giá sản phẩm vừa thay đổi. Hãy tạo đề xuất mới với giá hiện tại.',
                 );
+            }
+            // Target bằng giá hiện tại là thao tác no-op; không cập nhật min/max hoặc phát event lần nữa.
+            if (currentPrice === input.nextPrice) {
+                return { variantId: variant.id, price: currentPrice };
             }
 
             variant.price = input.nextPrice.toFixed(2);

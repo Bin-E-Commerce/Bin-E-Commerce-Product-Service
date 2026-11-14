@@ -136,8 +136,23 @@ export class SellerProductUpdateService {
                 );
             }
 
-            if (nextName !== undefined) product.name = nextName;
-            if (nextDescription !== undefined)
+            const nameChanged =
+                nextName !== undefined && product.name !== nextName;
+            const descriptionChanged =
+                nextDescription !== undefined &&
+                product.description !== nextDescription;
+            if (!nameChanged && !descriptionChanged) {
+                // Retry với cùng target trả snapshot hiện tại, không ghi DB hoặc phát catalog event thêm lần nữa.
+                return {
+                    productId: product.id,
+                    name: product.name,
+                    description: product.description,
+                    updatedAt: product.updatedAt,
+                };
+            }
+
+            if (nameChanged && nextName !== undefined) product.name = nextName;
+            if (descriptionChanged && nextDescription !== undefined)
                 product.description = nextDescription;
             await manager.save(Product, product);
             await this.catalogEvents?.publish(
