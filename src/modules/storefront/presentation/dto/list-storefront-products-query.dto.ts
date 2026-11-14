@@ -8,6 +8,7 @@ import {
     IsOptional,
     IsString,
     IsUUID,
+    MaxLength,
     Max,
     Min,
 } from 'class-validator';
@@ -18,6 +19,7 @@ import { StorefrontSort } from '@/database/catalog/enums/storefront-sort.enum';
 export class ListStorefrontProductsQueryDto {
     @IsOptional()
     @IsString()
+    @MaxLength(120)
     search?: string;
 
     @IsOptional()

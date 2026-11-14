@@ -9,11 +9,13 @@ import {
 } from '@nestjs/common';
 import type { PaginatedProductResponse } from '@/modules/shared/application/types/paginated-product-response.type';
 import { ListStorefrontProductsQueryDto } from '@/modules/storefront/presentation/dto/list-storefront-products-query.dto';
-import { StorefrontProductsService } from '@/modules/storefront/application/services/storefront-products.service';
+import { ProductSearchSuggestionsQueryDto } from '@/modules/storefront/presentation/dto/product-search-suggestions-query.dto';
+import { StorefrontProductsService } from '@/modules/storefront/application/services/storefront/storefront-products.service';
+import type { ProductSearchSuggestion } from '@/modules/storefront/application/types/product-search-suggestion.type';
 import type {
     ShopCatalogSummary,
     StorefrontProduct,
-} from '@/modules/storefront/application/services/storefront-products.service';
+} from '@/modules/storefront/application/services/storefront/storefront-products.service';
 
 @Controller('products')
 export class StorefrontProductsController {
@@ -27,6 +29,16 @@ export class StorefrontProductsController {
         @Query() query: ListStorefrontProductsQueryDto,
     ): Promise<PaginatedProductResponse<StorefrontProduct>> {
         return this.storefrontProductsService.listStorefrontProducts(query);
+    }
+
+    // Trả autocomplete nhẹ qua Product Service, không gọi qua dữ liệu review/lượt bán từ các service khác.
+    @Get('search/suggestions')
+    getProductSearchSuggestions(
+        @Query() query: ProductSearchSuggestionsQueryDto,
+    ): Promise<ProductSearchSuggestion[]> {
+        return this.storefrontProductsService.getProductSearchSuggestions(
+            query.q,
+        );
     }
 
     // Trả summary của riêng shop để header public không phải tải toàn bộ catalog chỉ để đếm sản phẩm và review.

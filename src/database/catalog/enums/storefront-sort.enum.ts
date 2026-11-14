@@ -6,4 +6,5 @@ export enum StorefrontSort {
     PRICE_DESC = 'price_desc',
     RATING_DESC = 'rating_desc',
     SOLD_DESC = 'sold_desc',
+    RELEVANCE = 'relevance',
 }

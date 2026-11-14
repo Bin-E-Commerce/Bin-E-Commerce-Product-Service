@@ -12,7 +12,8 @@ import { ProductReviewLike } from '@/database/reviews/entities/product-review-li
 import { ProductReview } from '@/database/reviews/entities/product-review.entity';
 import { OrderSalesClient } from '@/modules/seller-products/application/clients/order-sales.client';
 import { ReviewerProfileClient } from '@/modules/reviews/application/clients/reviewer-profile.client';
-import { StorefrontProductsService } from '@/modules/storefront/application/services/storefront-products.service';
+import { StorefrontSearchRankingService } from '@/modules/storefront/application/services/storefront/search/storefront-search-ranking.service';
+import { StorefrontProductsService } from '@/modules/storefront/application/services/storefront/storefront-products.service';
 
 describe('StorefrontProductsService', () => {
     let target: StorefrontProductsService;
@@ -22,6 +23,7 @@ describe('StorefrontProductsService', () => {
     let mockReviewRepository: DeepMocked<Repository<ProductReview>>;
     let mockReviewerProfileClient: DeepMocked<ReviewerProfileClient>;
     let mockOrderSalesClient: DeepMocked<OrderSalesClient>;
+    let mockStorefrontSearchRankingService: DeepMocked<StorefrontSearchRankingService>;
 
     // Tạo product tối thiểu nhưng giữ totalSold đã đọc từ Product DB để kiểm tra fallback không ghi đè dữ liệu.
     const createProduct = (totalSold: number): Product =>
@@ -35,6 +37,7 @@ describe('StorefrontProductsService', () => {
             variants: [],
         }) as unknown as Product;
 
+    // Tạo adapter tìm kiếm giả vì các ca này chỉ kiểm tra enrichment sản phẩm, không truy vấn search.
     beforeEach(() => {
         mockProductRepository = createMock<Repository<Product>>();
         mockProductVariantRepository = createMock<Repository<ProductVariant>>();
@@ -42,6 +45,8 @@ describe('StorefrontProductsService', () => {
         mockReviewRepository = createMock<Repository<ProductReview>>();
         mockReviewerProfileClient = createMock<ReviewerProfileClient>();
         mockOrderSalesClient = createMock<OrderSalesClient>();
+        mockStorefrontSearchRankingService =
+            createMock<StorefrontSearchRankingService>();
         target = new StorefrontProductsService(
             mockProductRepository,
             mockProductVariantRepository,
@@ -49,6 +54,7 @@ describe('StorefrontProductsService', () => {
             mockReviewRepository,
             mockReviewerProfileClient,
             mockOrderSalesClient,
+            mockStorefrontSearchRankingService,
         );
     });
 

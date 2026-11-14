@@ -1,8 +1,11 @@
 // Service này đọc product public theo read model storefront và chỉ trả dữ liệu ở trạng thái được phép bán.
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+    Injectable,
+    NotFoundException,
+} from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, In, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Product } from '@/database/catalog/entities/product.entity';
 import { ProductVariant } from '@/database/catalog/entities/product-variant.entity';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
@@ -13,7 +16,9 @@ import { ReviewerProfileClient } from '@/modules/reviews/application/clients/rev
 import { OrderSalesClient } from '@/modules/seller-products/application/clients/order-sales.client';
 import { ProductReview } from '@/database/reviews/entities/product-review.entity';
 import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
-import { StorefrontSort } from '@/database/catalog/enums/storefront-sort.enum';
+import type { StorefrontSearchFilters } from '@/modules/storefront/application/ports/storefront-search.repository.port';
+import { StorefrontSearchRankingService } from '@/modules/storefront/application/services/storefront/search/storefront-search-ranking.service';
+import type { ProductSearchSuggestion } from '@/modules/storefront/application/types/product-search-suggestion.type';
 
 export interface ShopCatalogSummary {
     shopId: string;
@@ -43,6 +48,7 @@ export class StorefrontProductsService {
         private readonly reviewRepository: Repository<ProductReview>,
         private readonly reviewerProfileClient: ReviewerProfileClient,
         private readonly orderSalesClient: OrderSalesClient,
+        private readonly storefrontSearchRankingService: StorefrontSearchRankingService,
     ) {}
 
     // Lấy danh sách sản phẩm theo bộ lọc và phân trang để giao diện công khai và công cụ kiểm tra import dùng chung.
@@ -51,84 +57,27 @@ export class StorefrontProductsService {
     ): Promise<PaginatedProductResponse<StorefrontProduct>> {
         const page = query.page;
         const pageSize = query.pageSize;
-        const qb = this.productRepository.createQueryBuilder('product');
+        const filters: StorefrontSearchFilters = {
+            query: query.search,
+            categoryId: query.categoryId,
+            sellerShopId: query.sellerShopId,
+            minPrice: query.minPrice,
+            maxPrice: query.maxPrice,
+            minRating: query.minRating,
+            inStock: query.inStock,
+            sort: query.sort as StorefrontSearchFilters['sort'],
+            page,
+            pageSize,
+        };
+        const isPublicQuery =
+            !query.status || query.status === ProductStatus.ACTIVE;
+        const result = await this.storefrontSearchRankingService.search(
+            filters,
+            isPublicQuery,
+        );
+        const total = result.total;
+        const productIds = result.ids;
 
-        // Storefront chỉ hiển thị product ACTIVE; draft, inactive và deleted đều là dữ liệu nội bộ không được public.
-        qb.andWhere('product.status = :activeStatus', {
-            activeStatus: ProductStatus.ACTIVE,
-        });
-
-        if (query.categoryId) {
-            qb.andWhere('product.categoryId = :categoryId', {
-                categoryId: query.categoryId,
-            });
-        }
-
-        if (query.sellerShopId) {
-            qb.andWhere('product.sellerShopId = :sellerShopId', {
-                sellerShopId: query.sellerShopId,
-            });
-        }
-
-        if (query.status) {
-            // Giữ tương thích query cũ nhưng không cho client dùng status để mở draft/inactive.
-            if (query.status !== ProductStatus.ACTIVE) qb.andWhere('1 = 0');
-        }
-
-        if (query.minPrice !== undefined)
-            qb.andWhere('product.maxPrice >= :minPrice', {
-                minPrice: query.minPrice,
-            });
-        if (query.maxPrice !== undefined)
-            qb.andWhere('product.minPrice <= :maxPrice', {
-                maxPrice: query.maxPrice,
-            });
-        if (query.minRating !== undefined)
-            qb.andWhere('COALESCE(product.ratingAvg, 0) >= :minRating', {
-                minRating: query.minRating,
-            });
-        if (query.inStock) {
-            qb.andWhere(
-                `EXISTS (
-        SELECT 1 FROM product_variants storefront_variant
-        WHERE storefront_variant.product_id = product.id
-          AND storefront_variant.status = :activeVariantStatus
-          AND storefront_variant.stock_quantity > 0
-      )`,
-                { activeVariantStatus: ProductVariantStatus.ACTIVE },
-            );
-        }
-
-        if (query.search?.trim()) {
-            const keyword = `%${query.search.trim()}%`;
-            // Tìm kiếm chỉ dựa trên dữ liệu catalog mà seller quản lý công khai.
-            qb.andWhere(
-                new Brackets((builder) => {
-                    builder
-                        .where('product.name ILIKE :keyword', { keyword })
-                        .orWhere('product.slug ILIKE :keyword', { keyword });
-                }),
-            );
-        }
-
-        // Chỉ phân trang trên bảng products vì JOIN trực tiếp với images sẽ khiến nhiều ảnh của
-        // cùng một sản phẩm chiếm giới hạn trang và làm API trả thiếu sản phẩm.
-        const [total, idRows] = await Promise.all([
-            qb.clone().getCount(),
-            qb
-                .clone()
-                .select('product.id', 'id')
-                .orderBy(
-                    this.getSortColumn(query.sort),
-                    this.getSortDirection(query.sort),
-                )
-                .addOrderBy('product.id', 'ASC')
-                .offset((page - 1) * pageSize)
-                .limit(pageSize)
-                .getRawMany<{ id: string }>(),
-        ]);
-
-        const productIds = idRows.map((row) => row.id);
         if (productIds.length === 0) {
             return {
                 items: [],
@@ -140,7 +89,10 @@ export class StorefrontProductsService {
         }
 
         const items = await this.productRepository.find({
-            where: { id: In(productIds) },
+            where: {
+                id: In(productIds),
+                ...(isPublicQuery ? { status: ProductStatus.ACTIVE } : {}),
+            },
             relations: {
                 brand: true,
                 images: true,
@@ -181,6 +133,13 @@ export class StorefrontProductsService {
             pageSize,
             totalPages: Math.ceil(total / pageSize),
         };
+    }
+
+    // Trả tối đa sáu gợi ý gọn; endpoint này không đồng bộ review hay gọi Order Service như listing đầy đủ.
+    async getProductSearchSuggestions(
+        rawSearch: string,
+    ): Promise<ProductSearchSuggestion[]> {
+        return this.storefrontSearchRankingService.getProductSearchSuggestions(rawSearch);
     }
 
     // Giữ phương thức UUID cũ cho các caller hiện tại; cùng luồng xử lý bên dưới cũng nhận slug public.
@@ -534,25 +493,5 @@ export class StorefrontProductsService {
             displayPrice,
             displayOriginalPrice,
         });
-    }
-
-    // Map sort enum sang cột cố định để query builder không nhận raw SQL từ input public.
-    private getSortColumn(sort?: StorefrontSort): string {
-        switch (sort) {
-            case StorefrontSort.PRICE_ASC:
-            case StorefrontSort.PRICE_DESC:
-                return 'product.minPrice';
-            case StorefrontSort.RATING_DESC:
-                return 'COALESCE(product.ratingAvg, 0)';
-            case StorefrontSort.SOLD_DESC:
-                return 'product.totalSold';
-            default:
-                return 'product.createdAt';
-        }
-    }
-
-    // Chỉ cho phép direction nội bộ tương ứng enum sort, mặc định sản phẩm mới nhất.
-    private getSortDirection(sort?: StorefrontSort): 'ASC' | 'DESC' {
-        return sort === StorefrontSort.PRICE_ASC ? 'ASC' : 'DESC';
     }
 }

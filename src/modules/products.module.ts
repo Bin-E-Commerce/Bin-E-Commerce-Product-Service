@@ -37,7 +37,14 @@ import { SellerProductsService } from '@/modules/seller-products/application/ser
 import { SellerProductValidatorService } from '@/modules/seller-products/application/services/validation/seller-product-validator.service';
 import { SellerProductAiMediaService } from '@/modules/seller-products/application/services/media/seller-product-ai-media.service';
 import { StorefrontProductsController } from '@/modules/storefront/presentation/controllers/storefront-products.controller';
-import { StorefrontProductsService } from '@/modules/storefront/application/services/storefront-products.service';
+import { StorefrontProductsService } from '@/modules/storefront/application/services/storefront/storefront-products.service';
+import { StorefrontSearchRankingService } from '@/modules/storefront/application/services/storefront/search/storefront-search-ranking.service';
+import { STOREFRONT_SEARCH_REPOSITORY } from '@/modules/storefront/application/ports/storefront-search.repository.port';
+import { SEARCH_RERANKER } from '@/modules/storefront/application/ports/search-reranker.port';
+import { SEMANTIC_SEARCH_CANDIDATES } from '@/modules/storefront/application/ports/semantic-search-candidates.port';
+import { TypeOrmStorefrontSearchRepository } from '@/modules/storefront/infrastructure/repositories/typeorm-storefront-search.repository';
+import { AiSearchRerankerClient } from '@/modules/storefront/infrastructure/clients/ai-search-reranker.client';
+import { SemanticSearchCandidatesClient } from '@/modules/storefront/infrastructure/clients/semantic-search-candidates.client';
 import { CheckoutModule } from '@/modules/checkout-inventory/checkout.module';
 import { ProductReviewController } from '@/modules/reviews/presentation/controllers/product-review.controller';
 import { MyReviewController } from '@/modules/reviews/presentation/controllers/my-review.controller';
@@ -76,6 +83,19 @@ import { OrderSalesClient } from '@/modules/seller-products/application/clients/
     ],
     providers: [
         StorefrontProductsService,
+        StorefrontSearchRankingService,
+        {
+            provide: STOREFRONT_SEARCH_REPOSITORY,
+            useClass: TypeOrmStorefrontSearchRepository,
+        },
+        {
+            provide: SEARCH_RERANKER,
+            useClass: AiSearchRerankerClient,
+        },
+        {
+            provide: SEMANTIC_SEARCH_CANDIDATES,
+            useClass: SemanticSearchCandidatesClient,
+        },
         BrandsService,
         CatalogClient,
         SellerShopClient,
