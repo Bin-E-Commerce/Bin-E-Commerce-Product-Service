@@ -37,7 +37,9 @@ import { SellerProductsService } from '@/modules/seller-products/application/ser
 import { SellerProductValidatorService } from '@/modules/seller-products/application/services/validation/seller-product-validator.service';
 import { SellerProductAiMediaService } from '@/modules/seller-products/application/services/media/seller-product-ai-media.service';
 import { StorefrontProductsController } from '@/modules/storefront/presentation/controllers/storefront-products.controller';
-import { StorefrontProductsService } from '@/modules/storefront/application/services/storefront/storefront-products.service';
+import { StorefrontProductsService } from '@/modules/storefront/application/services/storefront/products/storefront-products.service';
+import { STOREFRONT_PRODUCT_REPOSITORY } from '@/modules/storefront/application/ports/products/storefront-product.repository.port';
+import { TypeOrmStorefrontProductRepository } from '@/modules/storefront/infrastructure/repositories/products/typeorm-storefront-product.repository';
 import { StorefrontSearchRankingService } from '@/modules/storefront/application/services/storefront/search/storefront-search-ranking.service';
 import { STOREFRONT_SEARCH_REPOSITORY } from '@/modules/storefront/application/ports/storefront-search.repository.port';
 import { SEARCH_RERANKER } from '@/modules/storefront/application/ports/text-search/search-reranker.port';
@@ -83,6 +85,10 @@ import { OrderSalesClient } from '@/modules/seller-products/application/clients/
     ],
     providers: [
         StorefrontProductsService,
+        {
+            provide: STOREFRONT_PRODUCT_REPOSITORY,
+            useClass: TypeOrmStorefrontProductRepository,
+        },
         StorefrontSearchRankingService,
         {
             provide: STOREFRONT_SEARCH_REPOSITORY,

@@ -10,12 +10,12 @@ import {
 import type { PaginatedProductResponse } from '@/modules/shared/application/types/paginated-product-response.type';
 import { ListStorefrontProductsQueryDto } from '@/modules/storefront/presentation/dto/list-storefront-products-query.dto';
 import { ProductSearchSuggestionsQueryDto } from '@/modules/storefront/presentation/dto/product-search-suggestions-query.dto';
-import { StorefrontProductsService } from '@/modules/storefront/application/services/storefront/storefront-products.service';
+import { StorefrontProductsService } from '@/modules/storefront/application/services/storefront/products/storefront-products.service';
 import type { ProductSearchSuggestion } from '@/modules/storefront/application/types/text-search/product-search-suggestion.type';
 import type {
     ShopCatalogSummary,
     StorefrontProduct,
-} from '@/modules/storefront/application/services/storefront/storefront-products.service';
+} from '@/modules/storefront/application/types/products/storefront-product.type';
 
 @Controller('products')
 export class StorefrontProductsController {
