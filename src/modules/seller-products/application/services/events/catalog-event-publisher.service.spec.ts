@@ -1,6 +1,7 @@
 import { In, type Repository } from 'typeorm';
 import type { RecommendationCatalogEvent } from '@common/kafka/events/recommendation.events';
 import { Product } from '@/database/catalog/entities/product.entity';
+import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { ProductVariant } from '@/database/catalog/entities/product-variant.entity';
 import { CatalogEventOutboxEntity } from '@/database/integration/entities/catalog-event-outbox.entity';
 import { KafkaProducerService } from '@/kafka/kafka-producer.service';
@@ -46,6 +47,87 @@ describe('CatalogEventPublisherService', () => {
         jest.clearAllTimers();
         jest.useRealTimers();
         jest.clearAllMocks();
+    });
+
+    // Ảnh đại diện event phải trỏ cùng ảnh render và ưu tiên asset AI đang hiển thị.
+    it('should publish structured media reference for the displayed primary image', () => {
+        // Arrange
+        const product = {
+            id: '10000000-0000-4000-8000-000000000001',
+            sellerOwnerId: '20000000-0000-4000-8000-000000000002',
+            catalogRevision: '4',
+            status: ProductStatus.ACTIVE,
+            name: 'Áo khoác',
+            slug: 'ao-khoac',
+            categoryId: '30000000-0000-4000-8000-000000000003',
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+            images: [
+                {
+                    sortOrder: 0,
+                    imageUrl: 'https://cdn.example.test/primary.webp',
+                    aiAssetId: '40000000-0000-4000-8000-000000000004',
+                    sourceAssetId: '50000000-0000-4000-8000-000000000005',
+                },
+            ],
+            variants: [],
+        } as unknown as Product;
+
+        // Act
+        const event = (
+            target as unknown as {
+                toEvent: (
+                    value: Product,
+                    eventName: 'product.catalog.upserted',
+                ) => RecommendationCatalogEvent;
+            }
+        ).toEvent(product, 'product.catalog.upserted');
+
+        // Assert
+        expect(event.data.imageUrl).toBe(
+            'https://cdn.example.test/primary.webp',
+        );
+        expect(event.data.primaryImageMedia).toEqual({
+            ownerId: product.sellerOwnerId,
+            assetId: '40000000-0000-4000-8000-000000000004',
+            purpose: 'product_image',
+        });
+    });
+
+    // Ảnh legacy thiếu owner hoặc asset không được suy luận Media reference từ URL public.
+    it('should omit media reference when product image has no managed asset owner', () => {
+        // Arrange
+        const product = {
+            id: '10000000-0000-4000-8000-000000000001',
+            sellerOwnerId: null,
+            catalogRevision: '4',
+            status: ProductStatus.ACTIVE,
+            name: 'Legacy product',
+            slug: 'legacy-product',
+            categoryId: '30000000-0000-4000-8000-000000000003',
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+            images: [
+                {
+                    sortOrder: 0,
+                    imageUrl: 'https://external.example.test/image.jpg',
+                },
+            ],
+            variants: [],
+        } as unknown as Product;
+
+        // Act
+        const event = (
+            target as unknown as {
+                toEvent: (
+                    value: Product,
+                    eventName: 'product.catalog.upserted',
+                ) => RecommendationCatalogEvent;
+            }
+        ).toEvent(product, 'product.catalog.upserted');
+
+        // Assert
+        expect(event.data.primaryImageMedia).toBeNull();
     });
 
     // Đảm bảo poll 5 giây kế tiếp không claim thêm hàng khi Kafka còn xử lý lô hiện tại.

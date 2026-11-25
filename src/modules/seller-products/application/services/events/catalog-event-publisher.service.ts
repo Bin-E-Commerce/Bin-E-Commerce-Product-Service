@@ -144,10 +144,22 @@ export class CatalogEventPublisherService
         product: Product,
         eventName: RecommendationCatalogEventType,
     ): RecommendationCatalogEvent {
-        const image =
-            [...(product.images ?? [])].sort(
-                (left, right) => left.sortOrder - right.sortOrder,
-            )[0]?.imageUrl ?? null;
+        // Dùng cùng ảnh đại diện cho URL hiện tại và Media reference để index không lệch ảnh khách đang thấy.
+        const primaryImage = [...(product.images ?? [])].sort(
+            (left, right) => left.sortOrder - right.sortOrder,
+        )[0];
+        const image = primaryImage?.imageUrl ?? null;
+        const primaryImageAssetId =
+            primaryImage?.aiAssetId ?? primaryImage?.sourceAssetId;
+        // Chỉ gửi asset đã được Product lưu cùng owner; không suy luận asset từ imageUrl hoặc URL CDN.
+        const primaryImageMedia =
+            product.sellerOwnerId && primaryImageAssetId
+                ? {
+                      ownerId: product.sellerOwnerId,
+                      assetId: primaryImageAssetId,
+                      purpose: 'product_image' as const,
+                  }
+                : null;
         const isInStock =
             product.status === ProductStatus.ACTIVE &&
             (product.variants ?? []).some(
@@ -171,6 +183,7 @@ export class CatalogEventPublisherService
                 name: product.name,
                 slug: product.slug,
                 imageUrl: image,
+                primaryImageMedia,
                 categoryId: product.categoryId,
                 brandId: product.brandId,
                 sellerShopId: product.sellerShopId,
