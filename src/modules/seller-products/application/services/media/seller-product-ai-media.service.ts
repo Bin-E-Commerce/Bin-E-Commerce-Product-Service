@@ -1,7 +1,5 @@
-//
-// Quan ly apply/rollback output anh AI trong transaction Product Service.
-// Service nay khong goi OpenAI va khong xoa asset S3; Media Service giu lifecycle asset sau commit.
-//
+// Áp dụng hoặc khôi phục gallery ảnh AI trong Product Service, cùng sự kiện cập nhật catalog.
+// Media Service sở hữu vòng đời asset. Product chỉ cập nhật tham chiếu và lưu snapshot để khôi phục.
 
 import {
     ConflictException,
@@ -13,6 +11,7 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Product } from '@/database/catalog/entities/product.entity';
 import { ProductImage } from '@/database/catalog/entities/product-image.entity';
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
+import { CatalogEventPublisherService } from '@/modules/seller-products/application/services/events/catalog-event-publisher.service';
 import type { SellerProductUserContext } from '@/modules/seller-products/application/types/seller-product-user-context.type';
 import type { AiMediaMutationResponse } from '@/modules/seller-products/application/types/ai-media-response.type';
 import type { ApplyAiMediaDto } from '@/modules/seller-products/presentation/dto/ai-media/apply-ai-media.dto';
@@ -27,21 +26,20 @@ type OriginalImageSnapshot = {
     aiAssetId?: string | null;
 };
 
-//  Service ghi output AI va snapshot anh goc cung mot transaction.
+// Cập nhật gallery, snapshot khôi phục và outbox trong cùng giao dịch Product.
 @Injectable()
 export class SellerProductAiMediaService {
+    // Dùng publisher hiện có để cùng cơ chế revision và gửi lại như luồng sửa ảnh thường.
     constructor(
         private readonly dataSource: DataSource,
         @InjectRepository(Product)
         private readonly productRepository: Repository<Product>,
+        private readonly catalogEvents: CatalogEventPublisherService,
     ) {}
 
-    //
-    // Apply anh AI sau khi lock product va kiem tra version seller da xem.
-    // Snapshot anh goc duoc ghi vao metadata truoc khi thay ProductImage, vi vay rollback
-    // khong can truy cap AI Service. Asset storage khong bi xoa trong transaction de tranh
-    // mat kha nang khoi phuc khi Media Service gap loi sau commit.
-    //
+    // Khóa sản phẩm và so phiên bản seller đã xem trước khi đổi các ảnh nguồn được chọn.
+    // Giữ snapshot gallery cũ để có thể khôi phục tham chiếu ảnh gốc khi cần.
+    // Chỉ ghi outbox sau khi đã lưu gallery và metadata, để worker đọc cùng phiên bản sau commit.
     async apply(
         currentUser: SellerProductUserContext,
         productId: string,
@@ -146,6 +144,12 @@ export class SellerProductAiMediaService {
             product.aiOptimizationStatus = 'APPLIED';
             product.aiOptimizedAt = new Date();
             const saved = await manager.save(Product, product);
+            // Tăng revision và ghi event trong transaction đang giữ khóa sản phẩm.
+            await this.catalogEvents.publish(
+                productId,
+                CatalogEventPublisherService.topics.upserted,
+                manager,
+            );
             return {
                 productId,
                 jobId: dto.jobId,
@@ -155,7 +159,8 @@ export class SellerProductAiMediaService {
         });
     }
 
-    //  Khoi phuc snapshot anh goc va xoa metadata tam de product quay ve trang thai truoc apply.
+    // Xác minh job đang áp dụng rồi khôi phục đúng snapshot gallery trước lần tối ưu đó.
+    // Xóa snapshot tạm và ghi outbox cùng transaction để index chuyển về ảnh gốc sau commit.
     async rollback(
         currentUser: SellerProductUserContext,
         productId: string,
@@ -201,6 +206,12 @@ export class SellerProductAiMediaService {
             product.metadata = metadata;
             product.aiOptimizationStatus = 'ROLLED_BACK';
             const saved = await manager.save(Product, product);
+            // Gallery khôi phục cần revision mới ngay cả khi từng được index trước đây.
+            await this.catalogEvents.publish(
+                productId,
+                CatalogEventPublisherService.topics.upserted,
+                manager,
+            );
             return {
                 productId,
                 jobId,
