@@ -6,6 +6,7 @@ import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import express from 'express';
 import { AppModule } from '@/app.module';
 import { buildHelmetOptions } from '@/common/config/helmet.config';
 import { setupHttpObservability } from '@common/observability/http-observability';
@@ -23,6 +24,13 @@ async function bootstrap(): Promise<void> {
     const port = Number(config.get<string>('PORT', '3008'));
 
     app.use(helmet(buildHelmetOptions(isDev)));
+    // Chỉ parse MIME ảnh hỗ trợ và giới hạn raw body trước controller; ảnh không bị ghi ra disk.
+    app.use(
+        express.raw({
+            type: ['image/jpeg', 'image/png', 'image/webp'],
+            limit: '5mb',
+        }),
+    );
     app.setGlobalPrefix('api');
     // Đăng ký metrics RED và request ID trước khi service bắt đầu nhận traffic.
     setupHttpObservability(app, 'product-service');

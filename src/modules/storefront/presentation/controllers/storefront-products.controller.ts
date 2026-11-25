@@ -5,8 +5,11 @@ import {
     Headers,
     Param,
     ParseUUIDPipe,
+    Post,
     Query,
+    Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import type { PaginatedProductResponse } from '@/modules/shared/application/types/paginated-product-response.type';
 import { ListStorefrontProductsQueryDto } from '@/modules/storefront/presentation/dto/list-storefront-products-query.dto';
 import { ProductSearchSuggestionsQueryDto } from '@/modules/storefront/presentation/dto/product-search-suggestions-query.dto';
@@ -16,11 +19,15 @@ import type {
     ShopCatalogSummary,
     StorefrontProduct,
 } from '@/modules/storefront/application/types/products/storefront-product.type';
+import { StorefrontImageSearchService } from '@/modules/storefront/application/services/storefront/image-search/storefront-image-search.service';
+import { StorefrontImageSearchQueryDto } from '@/modules/storefront/presentation/dto/image-search/storefront-image-search-query.dto';
+import type { StorefrontImageSearchResponse } from '@/modules/storefront/application/types/image-search/image-search.type';
 
 @Controller('products')
 export class StorefrontProductsController {
     constructor(
         private readonly storefrontProductsService: StorefrontProductsService,
+        private readonly storefrontImageSearchService: StorefrontImageSearchService,
     ) {}
 
     // Trả danh sách sản phẩm cho storefront như trang chủ, tìm kiếm và danh mục công khai.
@@ -39,6 +46,28 @@ export class StorefrontProductsController {
         return this.storefrontProductsService.getProductSearchSuggestions(
             query.q,
         );
+    }
+
+    // Nhận raw image; bytes không đi qua multipart storage và chỉ sống trong request để AI tạo embedding.
+    @Post('image-searches')
+    createImageSearch(
+        @Req() request: Request,
+        @Query() query: StorefrontImageSearchQueryDto,
+    ): Promise<StorefrontImageSearchResponse<StorefrontProduct>> {
+        return this.storefrontImageSearchService.createSearch(
+            request.body,
+            request.headers['content-type'],
+            query,
+        );
+    }
+
+    // Tái dùng candidate session khi đổi trang/bộ lọc, không yêu cầu browser upload lại ảnh.
+    @Get('image-searches/:searchId')
+    getImageSearch(
+        @Param('searchId', ParseUUIDPipe) searchId: string,
+        @Query() query: StorefrontImageSearchQueryDto,
+    ): Promise<StorefrontImageSearchResponse<StorefrontProduct>> {
+        return this.storefrontImageSearchService.getSearch(searchId, query);
     }
 
     // Trả summary của riêng shop để header public không phải tải toàn bộ catalog chỉ để đếm sản phẩm và review.

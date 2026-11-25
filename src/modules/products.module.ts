@@ -59,6 +59,11 @@ import { OrderReviewClient } from '@/modules/reviews/application/clients/order-r
 import { ReviewerProfileClient } from '@/modules/reviews/application/clients/reviewer-profile.client';
 import { ReviewMediaClient } from '@/modules/reviews/application/clients/review-media.client';
 import { OrderSalesClient } from '@/modules/seller-products/application/clients/order-sales.client';
+import { StorefrontImageSearchService } from '@/modules/storefront/application/services/storefront/image-search/storefront-image-search.service';
+import { STOREFRONT_IMAGE_EMBEDDING } from '@/modules/storefront/application/ports/image-search/image-search-embedding.port';
+import { STOREFRONT_IMAGE_RECOMMENDATION } from '@/modules/storefront/application/ports/image-search/image-search-recommendation.port';
+import { StorefrontImageEmbeddingClient } from '@/modules/storefront/application/clients/image-search/storefront-image-embedding.client';
+import { StorefrontImageRecommendationClient } from '@/modules/storefront/application/clients/image-search/storefront-image-recommendation.client';
 
 @Module({
     imports: [
@@ -91,6 +96,15 @@ import { OrderSalesClient } from '@/modules/seller-products/application/clients/
         {
             provide: STOREFRONT_PRODUCT_REPOSITORY,
             useClass: TypeOrmStorefrontProductRepository,
+        },
+        StorefrontImageSearchService,
+        {
+            provide: STOREFRONT_IMAGE_EMBEDDING,
+            useClass: StorefrontImageEmbeddingClient,
+        },
+        {
+            provide: STOREFRONT_IMAGE_RECOMMENDATION,
+            useClass: StorefrontImageRecommendationClient,
         },
         StorefrontSearchRankingService,
         {
