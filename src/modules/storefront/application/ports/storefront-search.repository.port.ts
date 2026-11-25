@@ -1,6 +1,6 @@
 // Port tìm kiếm storefront; application nhận ID đã xếp hạng, không phụ thuộc TypeORM hay SQL.
-import type { ProductSearchSuggestion } from '@/modules/storefront/application/types/product-search-suggestion.type';
-import type { StorefrontSearchRerankProduct } from '@/modules/storefront/application/types/storefront-search-rerank-product.type';
+import type { ProductSearchSuggestion } from '@/modules/storefront/application/types/text-search/product-search-suggestion.type';
+import type { StorefrontSearchRerankProduct } from '@/modules/storefront/application/types/text-search/storefront-search-rerank-product.type';
 
 export const STOREFRONT_SEARCH_REPOSITORY = Symbol(
     'STOREFRONT_SEARCH_REPOSITORY',

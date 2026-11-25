@@ -4,19 +4,19 @@ import {
     SEARCH_RERANKER,
     type SearchRerankCandidate,
     type SearchRerankerPort,
-} from '@/modules/storefront/application/ports/search-reranker.port';
+} from '@/modules/storefront/application/ports/text-search/search-reranker.port';
 import {
     SEMANTIC_SEARCH_CANDIDATES,
     type SemanticSearchCandidatesPort,
-} from '@/modules/storefront/application/ports/semantic-search-candidates.port';
+} from '@/modules/storefront/application/ports/text-search/semantic-search-candidates.port';
 import {
     STOREFRONT_SEARCH_REPOSITORY,
     type StorefrontSearchFilters,
     type StorefrontSearchPage,
     type StorefrontSearchRepositoryPort,
 } from '@/modules/storefront/application/ports/storefront-search.repository.port';
-import type { StorefrontSearchRerankProduct } from '@/modules/storefront/application/types/storefront-search-rerank-product.type';
-import type { ProductSearchSuggestion } from '@/modules/storefront/application/types/product-search-suggestion.type';
+import type { StorefrontSearchRerankProduct } from '@/modules/storefront/application/types/text-search/storefront-search-rerank-product.type';
+import type { ProductSearchSuggestion } from '@/modules/storefront/application/types/text-search/product-search-suggestion.type';
 import {
     getStorefrontSearchMatchPriority,
     isProductIdentifierQuery,
@@ -87,10 +87,13 @@ export class StorefrontSearchRankingService {
                         }),
                         semanticPromise,
                     ]);
-                    const eligibleSemantic = await this.searchRepository.findEligibleSemanticCandidates(
-                        filters,
-                        semanticPage.map((candidate) => candidate.productId),
-                    );
+                    const eligibleSemantic =
+                        await this.searchRepository.findEligibleSemanticCandidates(
+                            filters,
+                            semanticPage.map(
+                                (candidate) => candidate.productId,
+                            ),
+                        );
                     const semanticIds = new Set(eligibleSemantic.ids);
                     const lexicalIds = new Set(lexicalPage.ids);
                     const lexicalCapacity = Math.max(
@@ -109,7 +112,9 @@ export class StorefrontSearchRankingService {
                     ]);
                     const candidateIds = Array.from(
                         new Set([
-                            ...lexicalPage.ids.filter((id) => selectedIds.has(id)),
+                            ...lexicalPage.ids.filter((id) =>
+                                selectedIds.has(id),
+                            ),
                             ...eligibleSemantic.ids.filter(
                                 (id) => !lexicalIds.has(id),
                             ),
@@ -132,14 +137,15 @@ export class StorefrontSearchRankingService {
                             shouldRerank = true;
                         } else {
                             // Trang sau pool AI tiếp tục từ SQL, loại candidate đã xuất hiện để không lặp sản phẩm.
-                            const tail = await this.searchRepository.findStorefrontProductPage(
-                                {
-                                    ...filters,
-                                    page: filters.page - rerankedPageCount,
-                                    pageSize: filters.pageSize,
-                                    excludeProductIds: candidateIds,
-                                },
-                            );
+                            const tail =
+                                await this.searchRepository.findStorefrontProductPage(
+                                    {
+                                        ...filters,
+                                        page: filters.page - rerankedPageCount,
+                                        pageSize: filters.pageSize,
+                                        excludeProductIds: candidateIds,
+                                    },
+                                );
                             result = { ids: tail.ids, total: hybridTotal };
                         }
                     }
@@ -151,7 +157,8 @@ export class StorefrontSearchRankingService {
         }
 
         if (isPublicQuery && result.ids.length === 0 && result.total === 0) {
-            result = await this.searchRepository.findStorefrontProductPage(filters);
+            result =
+                await this.searchRepository.findStorefrontProductPage(filters);
         }
 
         if (!shouldRerank || !searchText || result.ids.length === 0) {
@@ -159,11 +166,12 @@ export class StorefrontSearchRankingService {
         }
 
         try {
-            const products = await this.searchRepository.findSearchRerankingCandidates(
-                result.ids,
-                isPublicQuery,
-                searchText,
-            );
+            const products =
+                await this.searchRepository.findSearchRerankingCandidates(
+                    result.ids,
+                    isPublicQuery,
+                    searchText,
+                );
             // Status có thể đổi giữa retrieval và hydrate; không rerank pool thiếu vì offset sẽ tạo trang khuyết.
             if (products.length !== result.ids.length) {
                 throw new Error('SEARCH_MODEL_CANDIDATES_CHANGED');
@@ -219,10 +227,11 @@ export class StorefrontSearchRankingService {
                 title: product.name,
                 brand: product.brand?.name ?? null,
                 category: category || null,
-                sku: [product.sellerSku, product.gtin]
-                    .filter((value): value is string => Boolean(value))
-                    .join(' ')
-                    .slice(0, 64) || null,
+                sku:
+                    [product.sellerSku, product.gtin]
+                        .filter((value): value is string => Boolean(value))
+                        .join(' ')
+                        .slice(0, 64) || null,
                 description: description || null,
             };
         });

@@ -40,11 +40,11 @@ import { StorefrontProductsController } from '@/modules/storefront/presentation/
 import { StorefrontProductsService } from '@/modules/storefront/application/services/storefront/storefront-products.service';
 import { StorefrontSearchRankingService } from '@/modules/storefront/application/services/storefront/search/storefront-search-ranking.service';
 import { STOREFRONT_SEARCH_REPOSITORY } from '@/modules/storefront/application/ports/storefront-search.repository.port';
-import { SEARCH_RERANKER } from '@/modules/storefront/application/ports/search-reranker.port';
-import { SEMANTIC_SEARCH_CANDIDATES } from '@/modules/storefront/application/ports/semantic-search-candidates.port';
+import { SEARCH_RERANKER } from '@/modules/storefront/application/ports/text-search/search-reranker.port';
+import { SEMANTIC_SEARCH_CANDIDATES } from '@/modules/storefront/application/ports/text-search/semantic-search-candidates.port';
 import { TypeOrmStorefrontSearchRepository } from '@/modules/storefront/infrastructure/repositories/typeorm-storefront-search.repository';
-import { AiSearchRerankerClient } from '@/modules/storefront/infrastructure/clients/ai-search-reranker.client';
-import { SemanticSearchCandidatesClient } from '@/modules/storefront/infrastructure/clients/semantic-search-candidates.client';
+import { AiSearchRerankerClient } from '@/modules/storefront/application/clients/text-search/ai-search-reranker.client';
+import { SemanticSearchCandidatesClient } from '@/modules/storefront/application/clients/text-search/semantic-search-candidates.client';
 import { CheckoutModule } from '@/modules/checkout-inventory/checkout.module';
 import { ProductReviewController } from '@/modules/reviews/presentation/controllers/product-review.controller';
 import { MyReviewController } from '@/modules/reviews/presentation/controllers/my-review.controller';

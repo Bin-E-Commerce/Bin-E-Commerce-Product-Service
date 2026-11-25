@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type {
     SemanticSearchCandidate,
     SemanticSearchCandidatesPort,
-} from '@/modules/storefront/application/ports/semantic-search-candidates.port';
+} from '@/modules/storefront/application/ports/text-search/semantic-search-candidates.port';
 
 interface QueryEmbeddingResponse {
     modelVersion: string;
@@ -13,7 +13,9 @@ interface QueryEmbeddingResponse {
 }
 
 @Injectable()
-export class SemanticSearchCandidatesClient implements SemanticSearchCandidatesPort {
+export class SemanticSearchCandidatesClient
+    implements SemanticSearchCandidatesPort
+{
     private readonly aiServiceUrl: string;
     private readonly recommendationServiceUrl: string;
     private readonly internalToken: string;
@@ -52,7 +54,9 @@ export class SemanticSearchCandidatesClient implements SemanticSearchCandidatesP
     }
 
     // Gọi AI Service nội bộ; timeout đủ cho cache miss nhưng bị chặn để search không treo vô hạn.
-    private async createQueryEmbedding(query: string): Promise<QueryEmbeddingResponse> {
+    private async createQueryEmbedding(
+        query: string,
+    ): Promise<QueryEmbeddingResponse> {
         let response: Response;
         try {
             response = await fetch(

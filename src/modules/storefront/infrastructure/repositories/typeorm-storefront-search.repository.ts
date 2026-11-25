@@ -16,8 +16,8 @@ import type {
     StorefrontSearchRepositoryPort,
     StorefrontSearchSort,
 } from '@/modules/storefront/application/ports/storefront-search.repository.port';
-import type { ProductSearchSuggestion } from '@/modules/storefront/application/types/product-search-suggestion.type';
-import type { StorefrontSearchRerankProduct } from '@/modules/storefront/application/types/storefront-search-rerank-product.type';
+import type { ProductSearchSuggestion } from '@/modules/storefront/application/types/text-search/product-search-suggestion.type';
+import type { StorefrontSearchRerankProduct } from '@/modules/storefront/application/types/text-search/storefront-search-rerank-product.type';
 import { normalizeStorefrontSearchTerm } from '@/modules/storefront/application/utils/storefront-search.utils';
 
 // Adapter chỉ truy vấn sản phẩm ACTIVE; mọi match đầu vào được bind làm parameter.

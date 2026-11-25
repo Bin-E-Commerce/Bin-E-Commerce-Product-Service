@@ -6,7 +6,7 @@ import type {
     SearchRerankCandidate,
     SearchRerankPrediction,
     SearchRerankerPort,
-} from '@/modules/storefront/application/ports/search-reranker.port';
+} from '@/modules/storefront/application/ports/text-search/search-reranker.port';
 
 interface SearchRerankResponse {
     requestId: string;
@@ -64,7 +64,8 @@ export class AiSearchRerankerClient implements SearchRerankerPort {
                 this.readinessCheckedAt = now;
                 return false;
             }
-            const status = (await response.json()) as SearchRerankerStatusResponse;
+            const status =
+                (await response.json()) as SearchRerankerStatusResponse;
             this.modelReady =
                 status.ready === true &&
                 status.modelVersion === this.expectedModelVersion &&
@@ -132,7 +133,9 @@ export class AiSearchRerankerClient implements SearchRerankerPort {
             this.pauseSearchAi();
             throw new Error('SEARCH_RERANKER_RESPONSE_INVALID');
         }
-        const candidateIds = new Set(candidates.map((candidate) => candidate.itemId));
+        const candidateIds = new Set(
+            candidates.map((candidate) => candidate.itemId),
+        );
         if (
             typeof body.modelVersion !== 'string' ||
             body.modelVersion !== this.expectedModelVersion ||
