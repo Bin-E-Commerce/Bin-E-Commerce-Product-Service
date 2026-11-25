@@ -20,6 +20,9 @@ import { SellerProductsController } from '@/modules/seller-products/presentation
 import { InternalProductController } from '@/modules/internal/presentation/controllers/internal-product.controller';
 import { InternalSellerDashboardProductService } from '@/modules/internal/application/services/seller-dashboard/internal-seller-dashboard-product.service';
 import { InternalSellerProductCatalogService } from '@/modules/internal/application/services/seller-product-catalog/internal-seller-product-catalog.service';
+import { InternalProductImageSnapshotService } from '@/modules/internal/application/services/product-image-snapshot/internal-product-image-snapshot.service';
+import { INTERNAL_PRODUCT_IMAGE_SNAPSHOT_REPOSITORY } from '@/modules/internal/application/ports/internal-product-image-snapshot.repository.port';
+import { InternalProductImageSnapshotRepository } from '@/modules/internal/infrastructure/repositories/product-image-snapshot/internal-product-image-snapshot.repository';
 import { InternalSellerInventoryService } from '@/modules/internal/application/services/seller-inventory/internal-seller-inventory.service';
 import { INTERNAL_SELLER_PRODUCT_CATALOG_REPOSITORY } from '@/modules/internal/application/ports/internal-seller-product-catalog.repository.port';
 import { TypeOrmInternalSellerProductCatalogRepository } from '@/modules/internal/infrastructure/repositories/typeorm-internal-seller-product-catalog.repository';
@@ -124,9 +127,14 @@ import { OrderSalesClient } from '@/modules/seller-products/application/clients/
         InternalSellerDashboardProductService,
         InternalSellerInventoryService,
         InternalSellerProductCatalogService,
+        InternalProductImageSnapshotService,
         {
             provide: INTERNAL_SELLER_PRODUCT_CATALOG_REPOSITORY,
             useClass: TypeOrmInternalSellerProductCatalogRepository,
+        },
+        {
+            provide: INTERNAL_PRODUCT_IMAGE_SNAPSHOT_REPOSITORY,
+            useClass: InternalProductImageSnapshotRepository,
         },
     ],
     exports: [StorefrontProductsService, SellerProductsService],

@@ -8,6 +8,7 @@ import {
     Headers,
     Body,
     Patch,
+    BadRequestException,
     NotFoundException,
     Param,
     ParseUUIDPipe,
@@ -24,6 +25,7 @@ import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-s
 import { InternalServiceGuard } from '@/modules/checkout-inventory/presentation/guards/internal-service.guard';
 import { InternalSellerDashboardProductService } from '@/modules/internal/application/services/seller-dashboard/internal-seller-dashboard-product.service';
 import { InternalSellerProductCatalogService } from '@/modules/internal/application/services/seller-product-catalog/internal-seller-product-catalog.service';
+import { InternalProductImageSnapshotService } from '@/modules/internal/application/services/product-image-snapshot/internal-product-image-snapshot.service';
 import type { InternalSellerDashboardProductSnapshot } from '@/modules/internal/application/types/internal-seller-dashboard-product.type';
 import type { InternalSellerProductCatalogSnapshot } from '@/modules/internal/application/types/internal-seller-product-catalog.type';
 import { InternalSellerInventoryService } from '@/modules/internal/application/services/seller-inventory/internal-seller-inventory.service';
@@ -37,6 +39,7 @@ import { SellerProductUpdateService } from '@/modules/seller-products/applicatio
 @Controller('internal/products')
 @UseGuards(InternalServiceGuard)
 export class InternalProductController {
+    // Controller xác thực boundary và chuyển snapshot image work sang application service.
     constructor(
         @InjectRepository(Product)
         private readonly productRepository: Repository<Product>,
@@ -45,6 +48,7 @@ export class InternalProductController {
         private readonly sellerInventory: InternalSellerInventoryService,
         private readonly sellerProductAccess: SellerProductAccessService,
         private readonly sellerProductUpdate: SellerProductUpdateService,
+        private readonly productImageSnapshots: InternalProductImageSnapshotService,
     ) {}
 
     // Seller Service dùng số lượng này để bảo vệ địa chỉ mặc định đang phục vụ sản phẩm ACTIVE.
@@ -293,6 +297,30 @@ export class InternalProductController {
             total,
             totalPages: Math.ceil(total / pageSize),
         };
+    }
+
+    // Backfill ảnh dùng cursor ổn định và page tối đa 25; route legacy catalog-snapshot giữ nguyên contract offset.
+    @Get('catalog-image-snapshot')
+    async getCatalogImageSnapshotPage(
+        @Query('afterProductId', new ParseUUIDPipe({ optional: true }))
+        afterProductId: string | undefined,
+        @Query('limit', new DefaultValuePipe(25), ParseIntPipe) limit: number,
+    ) {
+        if (limit < 1 || limit > 25) {
+            throw new BadRequestException('limit must be between 1 and 25');
+        }
+        return this.productImageSnapshots.list(afterProductId, limit);
+    }
+
+    // Consumer dùng snapshot mới nhất theo ID để revision event cũ không thể làm sống lại vector đã gỡ.
+    @Get('catalog-image-snapshot/:productId')
+    async getCatalogImageSnapshot(
+        @Param('productId', new ParseUUIDPipe()) productId: string,
+    ) {
+        const snapshot = await this.productImageSnapshots.findOne(productId);
+        if (!snapshot)
+            throw new NotFoundException('Product snapshot not found');
+        return snapshot;
     }
 
     // Chuẩn hóa semantic snapshot giống catalog event để backfill tạo cùng contentHash với realtime path.
