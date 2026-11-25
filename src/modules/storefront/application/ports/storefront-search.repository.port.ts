@@ -1,6 +1,7 @@
 // Port tìm kiếm storefront; application nhận ID đã xếp hạng, không phụ thuộc TypeORM hay SQL.
 import type { ProductSearchSuggestion } from '@/modules/storefront/application/types/text-search/product-search-suggestion.type';
 import type { StorefrontSearchRerankProduct } from '@/modules/storefront/application/types/text-search/storefront-search-rerank-product.type';
+import type { StorefrontImageSearchCandidate } from '@/modules/storefront/application/types/image-search/image-search.type';
 
 export const STOREFRONT_SEARCH_REPOSITORY = Symbol(
     'STOREFRONT_SEARCH_REPOSITORY',
@@ -56,6 +57,12 @@ export interface StorefrontSearchRepositoryPort {
         activeOnly: boolean,
         query: string,
     ): Promise<StorefrontSearchRerankProduct[]>;
+
+    // Lọc ảnh theo catalog, điều kiện chữ và revision trước khi use case tính ngưỡng tương đối.
+    findImageSearchProductIds(
+        filters: StorefrontSearchFilters,
+        imageCandidates: StorefrontImageSearchCandidate[],
+    ): Promise<string[]>;
 
     // Trả sáu gợi ý tối đa, không gọi đồng bộ đánh giá hay số bán qua service khác.
     getProductSearchSuggestions(

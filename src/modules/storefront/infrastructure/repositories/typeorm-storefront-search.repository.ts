@@ -1,5 +1,6 @@
 // Adapter PostgreSQL sở hữu lọc, fuzzy match và xếp hạng search; không làm enrichment qua service khác.
 import { Injectable } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, In, Repository } from 'typeorm';
 import type { SelectQueryBuilder } from 'typeorm';
@@ -9,6 +10,7 @@ import { ProductVariant } from '@/database/catalog/entities/product-variant.enti
 import { ProductStatus } from '@/database/catalog/enums/product-status.enum';
 import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
 import { isUUID } from 'class-validator';
+import { IMAGE_SEARCH_MAX_PRODUCT_IMAGES } from '@common/kafka/events/recommendation.events';
 import type {
     EligibleSemanticSearchCandidates,
     StorefrontSearchFilters,
@@ -18,11 +20,14 @@ import type {
 } from '@/modules/storefront/application/ports/storefront-search.repository.port';
 import type { ProductSearchSuggestion } from '@/modules/storefront/application/types/text-search/product-search-suggestion.type';
 import type { StorefrontSearchRerankProduct } from '@/modules/storefront/application/types/text-search/storefront-search-rerank-product.type';
+import type { StorefrontImageSearchCandidate } from '@/modules/storefront/application/types/image-search/image-search.type';
 import { normalizeStorefrontSearchTerm } from '@/modules/storefront/application/utils/storefront-search.utils';
 
 // Adapter chỉ truy vấn sản phẩm ACTIVE; mọi match đầu vào được bind làm parameter.
 @Injectable()
-export class TypeOrmStorefrontSearchRepository implements StorefrontSearchRepositoryPort {
+export class TypeOrmStorefrontSearchRepository
+    implements StorefrontSearchRepositoryPort
+{
     constructor(
         @InjectRepository(Product)
         private readonly productRepository: Repository<Product>,
@@ -168,7 +173,9 @@ export class TypeOrmStorefrontSearchRepository implements StorefrontSearchReposi
                     builder
                         .where('LOWER(variant.name) = LOWER(:searchExact)')
                         .orWhere('LOWER(variant.sku) = LOWER(:searchExact)')
-                        .orWhere('LOWER(variant.sellerSku) = LOWER(:searchExact)')
+                        .orWhere(
+                            'LOWER(variant.sellerSku) = LOWER(:searchExact)',
+                        )
                         .orWhere('LOWER(variant.gtin) = LOWER(:searchExact)');
                 }),
                 { searchExact: searchText },
@@ -199,12 +206,66 @@ export class TypeOrmStorefrontSearchRepository implements StorefrontSearchReposi
             shortDescription: product.shortDescription,
             description: product.description,
             exactVariantNameMatch:
-                variantMatchByProductId.get(product.id)?.exactVariantNameMatch ??
-                false,
+                variantMatchByProductId.get(product.id)
+                    ?.exactVariantNameMatch ?? false,
             exactVariantCodeMatch:
-                variantMatchByProductId.get(product.id)?.exactVariantCodeMatch ??
-                false,
+                variantMatchByProductId.get(product.id)
+                    ?.exactVariantCodeMatch ?? false,
         }));
+    }
+
+    // Chỉ xét ID do tìm ảnh trả về. Mô tả chữ là điều kiện thu hẹp trên cùng sản phẩm.
+    // Dùng bộ lọc storefront từ PostgreSQL rồi xác minh fingerprint gallery trước khi xếp hạng.
+    async findImageSearchProductIds(
+        filters: StorefrontSearchFilters,
+        imageCandidates: StorefrontImageSearchCandidate[],
+    ): Promise<string[]> {
+        const candidateById = new Map(
+            imageCandidates
+                .filter((candidate) => isUUID(candidate.productId))
+                .slice(0, 500)
+                .map((candidate) => [candidate.productId, candidate]),
+        );
+        if (candidateById.size === 0) return [];
+
+        const rawQuery = filters.query?.trim();
+        const searchTerm = rawQuery
+            ? normalizeStorefrontSearchTerm(rawQuery)
+            : null;
+        // Chuỗi không có từ hợp lệ không được âm thầm biến thành tìm ảnh không điều kiện chữ.
+        if (rawQuery && !searchTerm) return [];
+
+        const query = this.createFilteredProductQuery(filters)
+            .leftJoinAndSelect('product.images', 'image')
+            .select([
+                'product.id',
+                'product.sellerOwnerId',
+                'image.id',
+                'image.sortOrder',
+                'image.aiAssetId',
+                'image.sourceAssetId',
+            ])
+            .andWhere('product.id IN (:...imageSearchProductIds)', {
+                imageSearchProductIds: [...candidateById.keys()],
+            });
+        // Dùng bằng chứng chữ trong tên, danh mục và các trường catalog; fuzzy có thể đưa nhầm loại vào bộ ảnh.
+        if (searchTerm) this.applySearchConditions(query, searchTerm, false);
+        this.applyImageSearchSort(query, filters.sort);
+
+        const products = await query.getMany();
+        const currentIds = products
+            .filter((product) =>
+                this.matchesCurrentImageGallery(
+                    product,
+                    candidateById.get(product.id),
+                ),
+            )
+            .map((product) => product.id);
+        if (filters.sort && filters.sort !== 'relevance') return currentIds;
+
+        // Query DB có thể trả ID theo thứ tự khác; relevance luôn theo rank ảnh đã lưu trong session.
+        const currentIdSet = new Set(currentIds);
+        return [...candidateById.keys()].filter((id) => currentIdSet.has(id));
     }
 
     // Lấy autocomplete nhẹ với thumbnail duy nhất; không hydrate reviews hoặc truy vấn Order Service.
@@ -275,6 +336,7 @@ export class TypeOrmStorefrontSearchRepository implements StorefrontSearchReposi
         searchTerm: NonNullable<
             ReturnType<typeof normalizeStorefrontSearchTerm>
         >,
+        allowFuzzy = true,
     ): void {
         const normalizedValue = searchTerm.normalizedTerm || 'emptysearchterm';
         const normalizedLikeValue =
@@ -400,7 +462,8 @@ export class TypeOrmStorefrontSearchRepository implements StorefrontSearchReposi
                 // AND theo token mở rộng truy vấn nhiều từ nhưng mỗi token vẫn phải khớp một trường cùng sản phẩm.
                 if (tokenMatchSql) builder.orWhere(tokenMatchSql);
 
-                if (searchTerm.normalizedTerm.length >= 4) {
+                // Tìm chữ thường vẫn dùng trigram; mô tả ảnh chỉ thu hẹp bằng match có bằng chứng trực tiếp.
+                if (allowFuzzy && searchTerm.normalizedTerm.length >= 4) {
                     builder
                         .orWhere('product.name % :searchRawTerm')
                         .orWhere('product.slug % :searchSlugTerm')
@@ -550,6 +613,66 @@ export class TypeOrmStorefrontSearchRepository implements StorefrontSearchReposi
             );
         }
         return query;
+    }
+
+    // Fingerprint gallery xác nhận vector còn đại diện cho ảnh hiện tại.
+    // Revision catalog cũng đổi khi giá hoặc tồn kho cập nhật, nên phiên cũ vẫn dùng được nếu gallery khớp.
+    // Trạng thái ACTIVE, giá và số lượng bán được đã được truy vấn lại từ PostgreSQL trước bước này.
+    private matchesCurrentImageGallery(
+        product: Product,
+        candidate: StorefrontImageSearchCandidate | undefined,
+    ): boolean {
+        if (!candidate || !product.sellerOwnerId) {
+            return false;
+        }
+        const orderedImages = [...(product.images ?? [])].sort(
+            (left, right) =>
+                left.sortOrder - right.sortOrder ||
+                left.id.localeCompare(right.id),
+        );
+        const seenAssetIds = new Set<string>();
+        const references: string[] = [];
+        for (const image of orderedImages) {
+            // Dùng cùng quy tắc với snapshot index: AI asset ưu tiên, loại trùng rồi mới áp giới hạn năm ảnh.
+            const assetId =
+                image.aiAssetId?.trim() || image.sourceAssetId?.trim();
+            if (!assetId || seenAssetIds.has(assetId)) continue;
+            seenAssetIds.add(assetId);
+            references.push(`${product.sellerOwnerId}:${assetId}`);
+            if (references.length >= IMAGE_SEARCH_MAX_PRODUCT_IMAGES) break;
+        }
+        if (references.length === 0) return false;
+        const fingerprint = createHash('sha256')
+            .update(JSON.stringify(references))
+            .digest('hex');
+        return fingerprint === candidate.imageFingerprint;
+    }
+
+    // Sort chỉ dùng cột cố định từ enum storefront; relevance giữ thứ tự ảnh do Recommendation đưa vào.
+    private applyImageSearchSort(
+        query: SelectQueryBuilder<Product>,
+        sort?: StorefrontSearchSort,
+    ): void {
+        switch (sort) {
+            case 'price_asc':
+                query.orderBy('product.minPrice', 'ASC');
+                break;
+            case 'price_desc':
+                query.orderBy('product.minPrice', 'DESC');
+                break;
+            case 'rating_desc':
+                query.orderBy('COALESCE(product.ratingAvg, 0)', 'DESC');
+                break;
+            case 'sold_desc':
+                query.orderBy('product.totalSold', 'DESC');
+                break;
+            case 'newest':
+                query.orderBy('product.createdAt', 'DESC');
+                break;
+            default:
+                return;
+        }
+        query.addOrderBy('product.id', 'ASC');
     }
 
     // Ưu tiên mã/tên khớp chính xác, tiền tố, brand, variant rồi mới đến mô tả và fuzzy match.
