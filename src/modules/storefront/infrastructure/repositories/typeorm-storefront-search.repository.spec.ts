@@ -7,6 +7,7 @@ import {
     type WhereExpressionBuilder,
 } from 'typeorm';
 import { Product } from '@/database/catalog/entities/product.entity';
+import { ProductVariantStatus } from '@/database/catalog/enums/product-variant-status.enum';
 import { TypeOrmStorefrontSearchRepository } from '@/modules/storefront/infrastructure/repositories/typeorm-storefront-search.repository';
 
 describe('TypeOrmStorefrontSearchRepository', () => {
@@ -28,9 +29,7 @@ describe('TypeOrmStorefrontSearchRepository', () => {
         mockQueryBuilder.limit.mockReturnValue(mockQueryBuilder);
         mockQueryBuilder.clone.mockReturnValue(mockQueryBuilder);
         mockQueryBuilder.getCount.mockResolvedValue(1);
-        mockQueryBuilder.getRawMany.mockResolvedValue([
-            { id: 'product-1' },
-        ]);
+        mockQueryBuilder.getRawMany.mockResolvedValue([{ id: 'product-1' }]);
         mockProductRepository.createQueryBuilder.mockReturnValue(
             mockQueryBuilder,
         );
@@ -74,8 +73,38 @@ describe('TypeOrmStorefrontSearchRepository', () => {
             .map(([selection]) =>
                 Array.isArray(selection) ? selection.join('\n') : selection,
             )
-            .find((selection) => selection.includes('WHEN LOWER(product.name)'));
+            .find((selection) =>
+                selection.includes('WHEN LOWER(product.name)'),
+            );
         expect(rankingExpression).toContain('THEN 740');
         expect(rankingExpression).toContain('THEN 560');
+    });
+
+    // Filter storefront chỉ coi quantity_available trên variant ACTIVE là lượng có thể bán.
+    it('should filter in-stock products by available inventory', async () => {
+        await target.findStorefrontProductPage({
+            page: 1,
+            pageSize: 20,
+            inStock: true,
+        });
+
+        const inventoryFilter = mockQueryBuilder.andWhere.mock.calls
+            .map(([condition]) => condition)
+            .find(
+                (condition) =>
+                    typeof condition === 'string' &&
+                    condition.includes('stock_inventory.quantity_available'),
+            );
+
+        expect(inventoryFilter).toContain(
+            'stock_inventory.quantity_available > 0',
+        );
+        expect(inventoryFilter).not.toContain('stock_quantity');
+        expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+            expect.stringContaining(
+                'stock_variant.status = :activeVariantStatus',
+            ),
+            { activeVariantStatus: ProductVariantStatus.ACTIVE },
+        );
     });
 });

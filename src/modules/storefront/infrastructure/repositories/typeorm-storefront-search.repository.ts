@@ -535,13 +535,16 @@ export class TypeOrmStorefrontSearchRepository implements StorefrontSearchReposi
             });
         }
         if (filters.inStock) {
-            // Hàng chỉ còn ở variant inactive không được xem là còn hàng khi người mua bật filter.
+            // Chỉ lượng bán được mới thỏa filter; stock_quantity gồm cả hàng đã reserved.
             query.andWhere(
                 `EXISTS (
-                    SELECT 1 FROM product_variants stock_variant
+                    SELECT 1
+                    FROM product_variants stock_variant
+                    INNER JOIN inventories stock_inventory
+                        ON stock_inventory.variant_id = stock_variant.id
                     WHERE stock_variant.product_id = product.id
                       AND stock_variant.status = :activeVariantStatus
-                      AND stock_variant.stock_quantity > 0
+                      AND stock_inventory.quantity_available > 0
                 )`,
                 { activeVariantStatus: ProductVariantStatus.ACTIVE },
             );
