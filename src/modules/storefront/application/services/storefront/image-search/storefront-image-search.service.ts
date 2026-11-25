@@ -81,7 +81,7 @@ export class StorefrontImageSearchService {
             searchId = await this.recommendation.createSession(imageCandidates);
         } catch (error) {
             if (error instanceof BadRequestException) throw error;
-            return this.failUnavailable(error, startedAt);
+            return this.fallbackOrReject(filters, error, startedAt);
         }
         const response = await this.buildResponse(
             searchId,
@@ -93,7 +93,7 @@ export class StorefrontImageSearchService {
         return response;
     }
 
-    // GET tái dùng session và trả 410 khi phiên hết TTL để khách có thể tải lại ảnh.
+    // GET tái dùng session; hết TTL trả 410 cho image-only hoặc text fallback khi người dùng còn query chữ.
     async getSearch(
         searchId: string,
         filters: StorefrontImageSearchFilters,
@@ -104,9 +104,12 @@ export class StorefrontImageSearchService {
         try {
             imageCandidates = await this.recommendation.getSession(searchId);
         } catch (error) {
-            return this.failUnavailable(error, startedAt);
+            return this.fallbackOrReject(filters, error, startedAt);
         }
         if (imageCandidates === null) {
+            if (this.hasText(filters)) {
+                return this.textFallback(filters, 'session_expired', startedAt);
+            }
             throw new GoneException('IMAGE_SEARCH_SESSION_EXPIRED');
         }
         const response = await this.buildResponse(
@@ -284,11 +287,17 @@ export class StorefrontImageSearchService {
         );
     }
 
-    // Ánh xạ lỗi AI, Qdrant hoặc session store thành 503; chỉ log tên lỗi và độ trễ.
-    private failUnavailable(
+    // Nếu AI, Qdrant hoặc session store lỗi, chỉ query chữ mới có fallback minh bạch.
+    private async fallbackOrReject(
+        filters: StorefrontImageSearchFilters,
         error: unknown,
         startedAt: number,
-    ): never {
+    ): Promise<StorefrontImageSearchResponse<StorefrontProduct>> {
+        if (this.hasText(filters)) {
+            const errorType =
+                error instanceof Error ? error.constructor.name : 'unknown';
+            return this.textFallback(filters, errorType, startedAt);
+        }
         const errorType =
             error instanceof Error ? error.constructor.name : 'unknown';
         this.logger.warn(
@@ -301,6 +310,38 @@ export class StorefrontImageSearchService {
         throw new ServiceUnavailableException(
             'IMAGE_SEARCH_TEMPORARILY_UNAVAILABLE',
         );
+    }
+
+    // Dùng endpoint/listing logic hiện hữu và đánh dấu rõ mode để client không coi đây là image match.
+    private async textFallback(
+        filters: StorefrontImageSearchFilters,
+        reason: string,
+        startedAt: number,
+    ): Promise<StorefrontImageSearchResponse<StorefrontProduct>> {
+        this.logger.warn(
+            JSON.stringify({
+                event: 'storefront_image_search_text_fallback',
+                reason,
+                durationMs: Date.now() - startedAt,
+            }),
+        );
+        const result = await this.products.listStorefrontProducts({
+            search: filters.search,
+            categoryId: filters.categoryId,
+            sellerShopId: filters.sellerShopId,
+            minPrice: filters.minPrice,
+            maxPrice: filters.maxPrice,
+            minRating: filters.minRating,
+            inStock: filters.inStock,
+            sort: filters.sort,
+            page: filters.page,
+            pageSize: filters.pageSize,
+        });
+        return {
+            searchId: null,
+            mode: 'TEXT_FALLBACK',
+            ...result,
+        };
     }
 
     // Chỉ log mode, số candidate và độ trễ; không log query, ảnh, hash, product ID hoặc session token.
@@ -320,7 +361,7 @@ export class StorefrontImageSearchService {
         );
     }
 
-    // Mô tả chữ thu hẹp tập ứng viên ảnh trong catalog.
+    // Mô tả chữ thu hẹp ứng viên ảnh trong catalog; nhà cung cấp tìm chữ chỉ được dùng cho fallback.
     private toRepositoryFilters(
         filters: StorefrontImageSearchFilters,
     ): StorefrontSearchFilters {
@@ -338,7 +379,7 @@ export class StorefrontImageSearchService {
         };
     }
 
-    // Xác định chế độ kết hợp bằng mô tả chữ đã loại khoảng trắng.
+    // Trimming xác định query thật sự; chuỗi whitespace không vô tình kích hoạt text fallback.
     private hasText(filters: StorefrontImageSearchFilters): boolean {
         return Boolean(filters.search?.trim());
     }

@@ -301,6 +301,30 @@ describe('StorefrontImageSearchService', () => {
         );
     });
 
+    // Query chữ cho phép fallback về listing hiện tại khi AI hoặc Recommendation không khả dụng.
+    it('should return an explicit text fallback when image dependencies fail', async () => {
+        imageEmbedding.embedImage.mockRejectedValue(
+            new ServiceUnavailableException('model unavailable'),
+        );
+
+        const result = await target.createSearch(
+            Buffer.from('image bytes'),
+            'image/png',
+            { search: 'red bag', inStock: true, page: 1, pageSize: 20 },
+        );
+
+        expect(result.mode).toBe('TEXT_FALLBACK');
+        expect(result.searchId).toBeNull();
+        expect(products.listStorefrontProducts).toHaveBeenCalledWith(
+            expect.objectContaining({
+                search: 'red bag',
+                inStock: true,
+                page: 1,
+                pageSize: 20,
+            }),
+        );
+    });
+
     // Ảnh bị AI từ chối là lỗi đầu vào, không được che bằng text fallback dù có query chữ.
     it('should preserve invalid-image errors instead of falling back to text', async () => {
         imageEmbedding.embedImage.mockRejectedValue(
