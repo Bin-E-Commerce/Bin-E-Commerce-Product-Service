@@ -1,4 +1,4 @@
-import type { Repository } from 'typeorm';
+import { In, type Repository } from 'typeorm';
 import type { RecommendationCatalogEvent } from '@common/kafka/events/recommendation.events';
 import { Product } from '@/database/catalog/entities/product.entity';
 import { ProductVariant } from '@/database/catalog/entities/product-variant.entity';
@@ -71,8 +71,8 @@ describe('CatalogEventPublisherService', () => {
         });
 
         mockQuery
-            .mockResolvedValueOnce([])
-            .mockResolvedValueOnce([{ event_id: event.eventId }]);
+            .mockResolvedValueOnce([[], 0])
+            .mockResolvedValueOnce([[{ event_id: event.eventId }], 1]);
         mockFind.mockResolvedValue([{ payload: event }]);
         mockUpdate.mockImplementation(async () => {
             resolvePublishedUpdate();
@@ -89,7 +89,13 @@ describe('CatalogEventPublisherService', () => {
         await jest.advanceTimersByTimeAsync(5_000);
 
         // Assert
-        expect(mockPublish).toHaveBeenCalledTimes(1);
+        expect(mockFind).toHaveBeenCalledWith({
+            where: { eventId: In([event.eventId]) },
+            order: { createdAt: 'ASC' },
+        });
+        expect(mockPublish.mock.calls).toEqual([
+            [event.eventName, event, event.aggregateId],
+        ]);
         expect(mockQuery).toHaveBeenCalledTimes(2);
 
         resolvePublish(true);
@@ -98,5 +104,22 @@ describe('CatalogEventPublisherService', () => {
             { eventId: event.eventId },
             expect.objectContaining({ status: 'PUBLISHED' }),
         );
+    });
+
+    // Lượt poll không nhận được event chỉ dừng tại kết quả [[], 0] của PostgreSQL.
+    it('should skip lookup and publish when the PostgreSQL claim is empty', async () => {
+        // Arrange
+        jest.useFakeTimers();
+        mockQuery.mockResolvedValue([[], 0]);
+
+        // Act
+        target.onModuleInit();
+        await jest.advanceTimersByTimeAsync(0);
+
+        // Assert
+        expect(mockQuery).toHaveBeenCalledTimes(2);
+        expect(mockFind).not.toHaveBeenCalled();
+        expect(mockPublish).not.toHaveBeenCalled();
+        expect(mockUpdate).not.toHaveBeenCalled();
     });
 });

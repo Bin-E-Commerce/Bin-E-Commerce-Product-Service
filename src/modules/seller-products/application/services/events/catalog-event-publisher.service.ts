@@ -221,7 +221,8 @@ export class CatalogEventPublisherService
         await this.scheduleRetry(event.eventId);
     }
 
-    // Lease đơn giản theo availableAt; event catalog cùng product vẫn giữ thứ tự nhờ Kafka aggregate key.
+    // Mỗi lượt lấy tối đa 20 event đã đến hạn, khóa khi nhận để các dispatcher không lấy trùng.
+    // Chỉ gửi những ID mà PostgreSQL đã chuyển sang PROCESSING; Kafka nhận cùng aggregate key theo sản phẩm.
     private async dispatchPending(): Promise<void> {
         // Khôi phục row đang PROCESSING nếu process crash sau khi claim nhưng trước khi Kafka ack.
         await this.outboxRepository.query(
@@ -229,7 +230,10 @@ export class CatalogEventPublisherService
           SET status = 'PENDING', updated_at = now()
         WHERE status = 'PROCESSING' AND updated_at < now() - INTERVAL '1 minute'`,
         );
-        const claimed = (await this.outboxRepository.query(
+        // TypeORM trả [rows, rowCount] cho UPDATE RETURNING, kể cả khi không có hàng được nhận.
+        const [claimed] = await this.outboxRepository.query<
+            [{ event_id: string }[], number]
+        >(
             `WITH claimed AS (
          SELECT event_id FROM catalog_event_outbox
          WHERE status = 'PENDING' AND available_at <= now()
@@ -241,7 +245,7 @@ export class CatalogEventPublisherService
          FROM claimed
         WHERE outbox.event_id = claimed.event_id
       RETURNING outbox.event_id`,
-        )) as Array<{ event_id: string }>;
+        );
         const pending = claimed.length
             ? await this.outboxRepository.find({
                   where: { eventId: In(claimed.map((row) => row.event_id)) },
