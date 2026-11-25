@@ -31,6 +31,14 @@ import type { StorefrontProduct } from '@/modules/storefront/application/types/p
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGE_CANDIDATES = 500;
+const MAX_SIMILARITY_GAP = 0.05;
+const SIMILARITY_COMPARISON_TOLERANCE = 1e-9;
+const MIN_DETAIL_REFERENCE_SIMILARITY = 0.8;
+const MIN_DETAIL_VIEW_SIMILARITY = 0.75;
+const MIN_DETAIL_SEPARATION = 0.04;
+const MIN_DETAIL_COUNTER_EVIDENCE = 0.025;
+const MIN_WHOLE_IMAGE_CONFLICT_MARGIN = 0.02;
+const MIN_DETAIL_CONFLICT_MARGIN = 0.015;
 const SUPPORTED_IMAGE_TYPES = new Set([
     'image/jpeg',
     'image/png',
@@ -144,18 +152,23 @@ export class StorefrontImageSearchService {
         }
     }
 
-    // Áp bộ lọc catalog và thứ tự của khách trước khi phân trang ứng viên ảnh.
+    // Catalog lọc giá, tồn kho, mô tả chữ và ảnh stale trước khi chọn kết quả đủ gần ảnh nhất.
+    // Áp ngưỡng tương đối trước phân trang và giữ sort mà người dùng đã chọn.
     private async buildResponse(
         searchId: string,
         imageCandidates: StorefrontImageSearchCandidate[],
         filters: StorefrontImageSearchFilters,
         mode: Exclude<StorefrontImageSearchMode, 'TEXT_FALLBACK'>,
     ): Promise<StorefrontImageSearchResponse<StorefrontProduct>> {
-        const matchingProductIds =
+        const eligibleProductIds =
             await this.searchRepository.findImageSearchProductIds(
                 this.toRepositoryFilters(filters),
                 imageCandidates,
             );
+        const matchingProductIds = this.keepSimilarProducts(
+            eligibleProductIds,
+            imageCandidates,
+        );
         const total = matchingProductIds.length;
         const offset = (filters.page - 1) * filters.pageSize;
         const pageIds = matchingProductIds.slice(
@@ -175,6 +188,100 @@ export class StorefrontImageSearchService {
             pageSize: filters.pageSize,
             totalPages: Math.ceil(total / filters.pageSize),
         };
+    }
+
+    // Chọn mốc từ sản phẩm còn thỏa catalog bằng cosine toàn ảnh, độc lập với thứ tự giá/ngày.
+    // Giữ luật cũ nếu session thiếu điểm. Chỉ đối chiếu vùng chi tiết sau khi đã áp ngưỡng toàn ảnh.
+    private keepSimilarProducts(
+        eligibleProductIds: string[],
+        imageCandidates: StorefrontImageSearchCandidate[],
+    ): string[] {
+        const candidateById = new Map(
+            imageCandidates.map((candidate) => [
+                candidate.productId,
+                candidate,
+            ]),
+        );
+        let reference: StorefrontImageSearchCandidate | undefined;
+        for (const id of eligibleProductIds) {
+            const candidate = candidateById.get(id);
+            if (candidate?.similarityScore === undefined)
+                return eligibleProductIds;
+            const referenceScore = reference?.similarityScore ?? -1;
+            // Hòa điểm lấy rank gốc làm mốc cố định để đổi sort không đổi tập kết quả.
+            if (
+                candidate.similarityScore > referenceScore ||
+                (reference &&
+                    candidate.similarityScore === referenceScore &&
+                    candidate.rank < reference.rank)
+            ) {
+                reference = candidate;
+            }
+        }
+        const bestScore = reference?.similarityScore ?? 0;
+        const referenceDetails = reference?.detailScores;
+        // Giữ cả ứng viên đúng biên 0,05 khi biểu diễn số thực có sai số.
+        const minimumScore =
+            bestScore - MAX_SIMILARITY_GAP - SIMILARITY_COMPARISON_TOLERANCE;
+        return eligibleProductIds.filter((id) => {
+            const candidate = candidateById.get(id);
+            const candidateScore = candidate?.similarityScore ?? 0;
+            if (candidateScore < minimumScore) return false;
+            // Mốc chưa đủ tin cậy hoặc thiếu điểm cả hai vùng thì giữ kết quả toàn ảnh.
+            if (
+                bestScore < MIN_DETAIL_REFERENCE_SIMILARITY ||
+                !referenceDetails ||
+                !candidate?.detailScores
+            ) {
+                return true;
+            }
+            return this.matchesImageDetails(
+                referenceDetails,
+                candidate.detailScores,
+                bestScore - candidateScore,
+            );
+        });
+    }
+
+    // So lực tách của mỗi vùng khi điểm khớp đạt mức đáng tin cậy.
+    // Khi hai vùng trái chiều, chỉ loại ứng viên nếu vùng ủng hộ mốc thắng rõ
+    // và điểm toàn ảnh cũng xác nhận lợi thế đó sau khi áp bộ lọc catalog.
+    private matchesImageDetails(
+        reference: [number, number],
+        scores: [number, number],
+        wholeImageAdvantage: number,
+    ): boolean {
+        let supportingGap = 0;
+        let opposingGap = 0;
+        for (const index of [0, 1] as const) {
+            const difference = reference[index] - scores[index];
+            if (reference[index] >= MIN_DETAIL_VIEW_SIMILARITY) {
+                supportingGap = Math.max(supportingGap, difference);
+            }
+            if (scores[index] >= MIN_DETAIL_VIEW_SIMILARITY) {
+                opposingGap = Math.max(opposingGap, -difference);
+            }
+        }
+        // Giữ quy tắc cũ khi không có cặp tín hiệu trái chiều đủ mạnh.
+        if (
+            supportingGap + SIMILARITY_COMPARISON_TOLERANCE <
+            MIN_DETAIL_SEPARATION
+        ) {
+            return true;
+        }
+        if (
+            opposingGap + SIMILARITY_COMPARISON_TOLERANCE <
+            MIN_DETAIL_COUNTER_EVIDENCE
+        ) {
+            return false;
+        }
+        // Nếu còn sát nhau ở một trong hai phép so, tránh loại một kết quả có thể phù hợp.
+        return (
+            wholeImageAdvantage + SIMILARITY_COMPARISON_TOLERANCE <
+                MIN_WHOLE_IMAGE_CONFLICT_MARGIN ||
+            supportingGap - opposingGap + SIMILARITY_COMPARISON_TOLERANCE <
+                MIN_DETAIL_CONFLICT_MARGIN
+        );
     }
 
     // Ánh xạ lỗi AI, Qdrant hoặc session store thành 503; chỉ log tên lỗi và độ trễ.

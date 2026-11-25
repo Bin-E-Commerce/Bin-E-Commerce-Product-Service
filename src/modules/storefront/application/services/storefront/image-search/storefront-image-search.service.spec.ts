@@ -116,6 +116,175 @@ describe('StorefrontImageSearchService', () => {
         expect(products.listStorefrontProducts).not.toHaveBeenCalled();
     });
 
+    // Điểm của sản phẩm bị loại bởi catalog không được nâng ngưỡng của kết quả còn lại.
+    it('should trim weak visual matches after catalog filtering and before pagination', async () => {
+        // Arrange
+        const candidates = [
+            { ...imageCandidates[0]!, similarityScore: 0.99 },
+            { ...imageCandidates[1]!, similarityScore: 0.87 },
+            {
+                ...imageCandidates[1]!,
+                productId: 'borderline',
+                rank: 3,
+                similarityScore: 0.82,
+            },
+            {
+                ...imageCandidates[1]!,
+                productId: 'weak-match',
+                rank: 4,
+                similarityScore: 0.81,
+            },
+        ];
+        recommendation.getSession.mockResolvedValue(candidates);
+        // Sort giá xếp điểm cao nhất xuống cuối; nó vẫn phải làm mốc tương đồng.
+        repository.findImageSearchProductIds.mockResolvedValue([
+            'weak-match',
+            'borderline',
+            'both-sources',
+        ]);
+
+        // Act
+        const result = await target.getSearch('search-session', {
+            inStock: true,
+            sort: StorefrontSort.PRICE_ASC,
+            page: 2,
+            pageSize: 1,
+        });
+
+        // Assert
+        expect(repository.findImageSearchProductIds).toHaveBeenCalledWith(
+            expect.objectContaining({
+                inStock: true,
+                sort: StorefrontSort.PRICE_ASC,
+            }),
+            candidates,
+        );
+        expect(result).toMatchObject({
+            mode: 'IMAGE',
+            total: 2,
+            totalPages: 2,
+        });
+        expect(products.getStorefrontProductsByIds).toHaveBeenCalledWith(
+            ['both-sources'],
+            true,
+        );
+        expect(recommendation.createSession).not.toHaveBeenCalled();
+    });
+
+    // Đổi hướng ảnh hoán đổi hai vùng nhưng không được làm ứng viên khác dáng quay lại.
+    it.each([
+        [
+            [0.788, 0.715],
+            [0.738, 0.714],
+        ],
+        [
+            [0.709, 0.791],
+            [0.73, 0.731],
+        ],
+    ] as Array<[[number, number], [number, number]]>)(
+        'should remove a close whole-image match that disagrees on a confident detail',
+        async (closestDetails, otherDetails) => {
+            recommendation.getSession.mockResolvedValue([
+                {
+                    ...imageCandidates[0]!,
+                    similarityScore: 0.831,
+                    detailScores: closestDetails,
+                },
+                {
+                    ...imageCandidates[1]!,
+                    similarityScore: 0.815,
+                    detailScores: otherDetails,
+                },
+            ]);
+
+            const result = await target.getSearch('search-session', {
+                page: 1,
+                pageSize: 20,
+            });
+
+            expect(result.total).toBe(1);
+            expect(products.getStorefrontProductsByIds).toHaveBeenCalledWith(
+                ['image-first'],
+                true,
+            );
+        },
+    );
+
+    // Khi hai vùng trái chiều, chỉ loại ứng viên nếu mốc thắng rõ ở vùng chi tiết và cả toàn ảnh.
+    it.each([
+        { candidateScore: 0.82259, total: 1, ids: ['image-first'] },
+        {
+            candidateScore: 0.836,
+            total: 2,
+            ids: ['image-first', 'both-sources'],
+        },
+    ])(
+        'should use the full-image margin to resolve conflicting details with score $candidateScore',
+        async ({ candidateScore, total, ids }) => {
+            // Arrange
+            recommendation.getSession.mockResolvedValue([
+                {
+                    ...imageCandidates[0]!,
+                    similarityScore: 0.84679,
+                    detailScores: [0.85029, 0.76683],
+                },
+                {
+                    ...imageCandidates[1]!,
+                    similarityScore: candidateScore,
+                    detailScores: [0.79997, 0.79696],
+                },
+            ]);
+
+            // Act
+            const result = await target.getSearch('search-session', {
+                page: 1,
+                pageSize: 2,
+            });
+
+            // Assert
+            expect(result.total).toBe(total);
+            expect(products.getStorefrontProductsByIds).toHaveBeenCalledWith(
+                ids,
+                true,
+            );
+        },
+    );
+
+    // Hai vùng mâu thuẫn gần ngang nhau thì giữ cả hai; khi lọc mất mốc cũ, ứng viên hợp catalog vẫn được trả.
+    it('should preserve conflicting detail matches and use the current catalog filters', async () => {
+        recommendation.getSession.mockResolvedValue([
+            {
+                ...imageCandidates[0]!,
+                similarityScore: 0.87,
+                detailScores: [0.83, 0.75],
+            },
+            {
+                ...imageCandidates[1]!,
+                similarityScore: 0.84,
+                detailScores: [0.78, 0.79],
+            },
+        ]);
+        const result = await target.getSearch('search-session', {
+            page: 1,
+            pageSize: 20,
+        });
+        expect(result.total).toBe(2);
+
+        repository.findImageSearchProductIds.mockResolvedValue([
+            'both-sources',
+        ]);
+        const filtered = await target.getSearch('search-session', {
+            inStock: true,
+            page: 1,
+            pageSize: 20,
+        });
+        expect(filtered.total).toBe(1);
+        expect(products.getStorefrontProductsByIds).toHaveBeenLastCalledWith(
+            ['both-sources'],
+            true,
+        );
+    });
+
     // Session từ bản cũ chỉ có rank vẫn đọc được đến hết TTL.
     it('should preserve legacy session ordering when similarity scores are unavailable', async () => {
         // Act
