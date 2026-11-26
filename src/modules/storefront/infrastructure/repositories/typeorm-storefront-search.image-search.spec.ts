@@ -37,6 +37,7 @@ describe('TypeOrmStorefrontSearchRepository image candidates', () => {
             images: [primaryImage, secondaryImage],
         } as Product;
         const queryBuilder = {
+            clone: jest.fn().mockReturnThis(),
             leftJoinAndSelect: jest.fn().mockReturnThis(),
             select: jest.fn().mockReturnThis(),
             where: jest.fn().mockReturnThis(),
@@ -79,4 +80,80 @@ describe('TypeOrmStorefrontSearchRepository image candidates', () => {
             'image',
         );
     });
+
+    // Mô tả chỉ đổi ưu tiên trong nhóm hợp lệ. Từ khóa lạ giữ nguyên thứ tự theo ảnh.
+    it.each([true, false])(
+        'should keep both visual matches when lexical evidence is present: %s',
+        async (hasLexicalMatch) => {
+            // Arrange
+            const ids = [
+                '10000000-0000-4000-8000-000000000001',
+                '10000000-0000-4000-8000-000000000002',
+                '10000000-0000-4000-8000-000000000003',
+            ];
+            const owner = '20000000-0000-4000-8000-000000000001';
+            const asset = 'fixture-asset';
+            const fingerprint = createHash('sha256')
+                .update(JSON.stringify([`${owner}:${asset}`]))
+                .digest('hex');
+            const product = {
+                sellerOwnerId: owner,
+                images: [{ id: 'image', sortOrder: 0, sourceAssetId: asset }],
+            };
+            const mockGalleryQuery = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue([
+                    { ...product, id: ids[0] },
+                    { ...product, id: ids[1] },
+                    { id: ids[2], sellerOwnerId: owner, images: [] },
+                ]),
+            };
+            const mockEligibleQuery = {
+                clone: jest.fn().mockReturnValue(mockGalleryQuery),
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
+                setParameters: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+                getRawMany: jest
+                    .fn()
+                    .mockResolvedValue(hasLexicalMatch ? [{ id: ids[1] }] : []),
+            };
+            const mockRepository = {
+                createQueryBuilder: jest
+                    .fn()
+                    .mockReturnValue(mockEligibleQuery),
+            } as unknown as Repository<Product>;
+            const target = new TypeOrmStorefrontSearchRepository(
+                mockRepository,
+            );
+
+            // Act
+            const ordered = await target.findImageSearchProductIds(
+                {
+                    page: 1,
+                    pageSize: 20,
+                    sort: 'relevance',
+                    query: 'áo phông trắng',
+                },
+                ids.map((productId, index) => ({
+                    productId,
+                    rank: index + 1,
+                    catalogRevision: '7',
+                    imageFingerprint: fingerprint,
+                })),
+            );
+
+            // Assert
+            expect(ordered).toEqual(
+                hasLexicalMatch ? [ids[1], ids[0]] : [ids[0], ids[1]],
+            );
+            expect(mockEligibleQuery.andWhere).toHaveBeenCalledWith(
+                'product.id IN (:...currentImageProductIds)',
+                { currentImageProductIds: [ids[0], ids[1]] },
+            );
+            expect(mockEligibleQuery.getRawMany).toHaveBeenCalledTimes(1);
+        },
+    );
 });

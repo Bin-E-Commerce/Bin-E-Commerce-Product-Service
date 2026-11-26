@@ -214,8 +214,9 @@ export class TypeOrmStorefrontSearchRepository
         }));
     }
 
-    // Chỉ xét ID do tìm ảnh trả về. Mô tả chữ là điều kiện thu hẹp trên cùng sản phẩm.
-    // Dùng bộ lọc storefront từ PostgreSQL rồi xác minh fingerprint gallery trước khi xếp hạng.
+    // Chỉ xét ứng viên ảnh còn đúng gallery và đạt bộ lọc storefront từ PostgreSQL.
+    // Khi xếp theo độ liên quan, mô tả chữ chỉ ưu tiên ứng viên có bằng chứng catalog.
+    // Giữ cả ứng viên chưa khớp chữ để tên khác cách gọi của khách không làm rỗng kết quả ảnh.
     async findImageSearchProductIds(
         filters: StorefrontSearchFilters,
         imageCandidates: StorefrontImageSearchCandidate[],
@@ -232,10 +233,14 @@ export class TypeOrmStorefrontSearchRepository
         const searchTerm = rawQuery
             ? normalizeStorefrontSearchTerm(rawQuery)
             : null;
-        // Chuỗi không có từ hợp lệ không được âm thầm biến thành tìm ảnh không điều kiện chữ.
-        if (rawQuery && !searchTerm) return [];
-
-        const query = this.createFilteredProductQuery(filters)
+        const eligibleQuery = this.createFilteredProductQuery(filters).andWhere(
+            'product.id IN (:...imageSearchProductIds)',
+            {
+                imageSearchProductIds: [...candidateById.keys()],
+            },
+        );
+        const query = eligibleQuery
+            .clone()
             .leftJoinAndSelect('product.images', 'image')
             .select([
                 'product.id',
@@ -244,12 +249,7 @@ export class TypeOrmStorefrontSearchRepository
                 'image.sortOrder',
                 'image.aiAssetId',
                 'image.sourceAssetId',
-            ])
-            .andWhere('product.id IN (:...imageSearchProductIds)', {
-                imageSearchProductIds: [...candidateById.keys()],
-            });
-        // Dùng bằng chứng chữ trong tên, danh mục và các trường catalog; fuzzy có thể đưa nhầm loại vào bộ ảnh.
-        if (searchTerm) this.applySearchConditions(query, searchTerm, false);
+            ]);
         this.applyImageSearchSort(query, filters.sort);
 
         const products = await query.getMany();
@@ -265,7 +265,28 @@ export class TypeOrmStorefrontSearchRepository
 
         // Query DB có thể trả ID theo thứ tự khác; relevance luôn theo rank ảnh đã lưu trong session.
         const currentIdSet = new Set(currentIds);
-        return [...candidateById.keys()].filter((id) => currentIdSet.has(id));
+        const imageRankIds = [...candidateById.keys()].filter((id) =>
+            currentIdSet.has(id),
+        );
+        if (!searchTerm || imageRankIds.length < 2) return imageRankIds;
+
+        // Chỉ dò chữ trên những ID còn hợp lệ, tắt fuzzy để tránh đẩy nhầm loại lên đầu.
+        // Hai nhóm đều giữ thứ tự ảnh gốc. Service vẫn áp quy tắc điểm ảnh trước khi phân trang.
+        const lexicalQuery = eligibleQuery
+            .select('product.id', 'id')
+            .andWhere('product.id IN (:...currentImageProductIds)', {
+                currentImageProductIds: imageRankIds,
+            });
+        this.applySearchConditions(lexicalQuery, searchTerm, false);
+        const lexicalMatches = new Set(
+            (await lexicalQuery.getRawMany<{ id: string }>()).map(
+                ({ id }) => id,
+            ),
+        );
+        return [
+            ...imageRankIds.filter((id) => lexicalMatches.has(id)),
+            ...imageRankIds.filter((id) => !lexicalMatches.has(id)),
+        ];
     }
 
     // Lấy autocomplete nhẹ với thumbnail duy nhất; không hydrate reviews hoặc truy vấn Order Service.
